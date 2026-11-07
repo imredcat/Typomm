@@ -362,12 +362,25 @@ body, html {
   will-change: scroll-position;
 }
 
-/* Typewriter Mode: Rock-solid horizontal center column with exact 50% vertical caret centering */
+/* Typewriter Mode: Exact 50% Horizontal & Vertical Caret Centering with Carriage Return Glide */
 .editor-viewport.typewriter-mode {
-  padding-top: calc(50vh - 1.5em) !important;
-  padding-bottom: 50vh !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
+  position: relative !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  display: block !important;
+}
+
+.editor-viewport.typewriter-mode .editor-wrapper,
+.editor-viewport.typewriter-mode .source-mode-container {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  margin: 0 !important;
+  will-change: transform;
+}
+
+.editor-viewport.typewriter-mode .editor-container {
+  padding: 40px 32px 120px 32px;
 }
 
 /* Max Width Variants */
@@ -386,6 +399,19 @@ body, html {
 .width-full .editor-wrapper,
 .width-full .editor-container,
 .width-full .source-mode-container { max-width: 100%; }
+
+/* Fixed Paper Widths under Typewriter Mode for Rock-Solid Line Wrap Stability */
+.editor-viewport.typewriter-mode.width-narrow .editor-wrapper,
+.editor-viewport.typewriter-mode.width-narrow .source-mode-container { width: 720px; min-width: 720px; }
+
+.editor-viewport.typewriter-mode.width-default .editor-wrapper,
+.editor-viewport.typewriter-mode.width-default .source-mode-container { width: 860px; min-width: 860px; }
+
+.editor-viewport.typewriter-mode.width-wide .editor-wrapper,
+.editor-viewport.typewriter-mode.width-wide .source-mode-container { width: 1080px; min-width: 1080px; }
+
+.editor-viewport.typewriter-mode.width-full .editor-wrapper,
+.editor-viewport.typewriter-mode.width-full .source-mode-container { width: 92vw; min-width: 92vw; }
 
 .editor-wrapper,
 .editor-container {

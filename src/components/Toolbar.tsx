@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { TyporaTheme } from "../types";
 import {
   FilePlus,
@@ -58,6 +59,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
+  // Native window dragging for macOS overlay titlebar
+  const handleDragWindow = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button, select, input, a, .export-dropdown-wrapper")) {
+      return;
+    }
+    getCurrentWindow().startDragging();
+  };
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -77,9 +88,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   }, [isExportMenuOpen]);
 
   return (
-    <header className="typora-toolbar" data-tauri-drag-region>
+    <header className="typora-toolbar" data-tauri-drag-region onMouseDown={handleDragWindow}>
       {/* macOS Traffic Lights Spacer */}
-      <div className="traffic-light-spacer" data-tauri-drag-region />
+      <div className="traffic-light-spacer" data-tauri-drag-region onMouseDown={handleDragWindow} />
 
       <div className="toolbar-actions left">
         <button
@@ -110,7 +121,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </button>
       </div>
 
-      <div className="document-title" data-tauri-drag-region>
+      <div className="document-title" data-tauri-drag-region onMouseDown={handleDragWindow}>
         <span className="title-text">{fileName}</span>
         {isDirty && <span className="dirty-badge" title="저장되지 않은 변경사항">•</span>}
       </div>

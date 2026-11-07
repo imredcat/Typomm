@@ -1,4 +1,5 @@
 import React from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { TabItem } from "../types";
 import { Plus, X, FileText } from "lucide-react";
 
@@ -17,8 +18,17 @@ export const TabBar: React.FC<TabBarProps> = ({
   onCloseTab,
   onNewTab,
 }) => {
+  const handleDragWindow = (e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button, .tab-item")) {
+      return;
+    }
+    getCurrentWindow().startDragging();
+  };
+
   return (
-    <div className="typora-tabbar">
+    <div className="typora-tabbar" data-tauri-drag-region onMouseDown={handleDragWindow}>
       <div className="tab-list">
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId;

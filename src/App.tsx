@@ -75,6 +75,9 @@ export default function App() {
   const [stats, setStats] = useState<{ words: number; chars: number }>({ words: 0, chars: 0 });
 
   const editorRef = useRef<EditorHandle>(null);
+  const sourceTransformRef = useRef<{ tx: number; ty: number }>({ tx: 0, ty: 0 });
+  const sourceGlidingRef = useRef<boolean>(false);
+  const sourceGlideTimerRef = useRef<number | null>(null);
 
   // Active tab helper
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
@@ -421,13 +424,14 @@ export default function App() {
     [activeTab]
   );
 
-  // Source Code Mode Typewriter Centering (Caret vertically centered, rock-solid horizontal column)
-  const scheduleSourceTypewriterScroll = useCallback(() => {
+  // Source Code Mode Typewriter Centering (Caret at exact 50% X & Y, with smooth carriage return glide)
+  const scheduleSourceTypewriterScroll = useCallback((forceGlide = false) => {
     if (!settings.typewriterMode) return;
     requestAnimationFrame(() => {
       const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
+      const container = document.querySelector<HTMLElement>(".source-mode-container");
       const viewport = document.querySelector<HTMLElement>(".editor-viewport");
-      if (!textarea || !viewport) return;
+      if (!textarea || !container || !viewport) return;
 
       // Ensure textarea accommodates full content height
       textarea.style.height = "auto";
@@ -435,33 +439,102 @@ export default function App() {
 
       const selectionStart = textarea.selectionStart;
       const textBefore = textarea.value.substring(0, selectionStart);
-      const lineIndex = textBefore.split("\n").length - 1;
+      const lines = textBefore.split("\n");
+      const lineIndex = lines.length - 1;
+      const currentLineText = lines[lineIndex];
 
       const computed = window.getComputedStyle(textarea);
       const lineHeight = parseFloat(computed.lineHeight) || (settings.fontSize * settings.lineHeight);
+      const paddingLeft = parseFloat(computed.paddingLeft) || 32;
+      const paddingTop = parseFloat(computed.paddingTop) || 40;
 
-      const textareaRect = textarea.getBoundingClientRect();
-      const viewportRect = viewport.getBoundingClientRect();
-
-      const caretY = textareaRect.top + lineIndex * lineHeight + lineHeight / 2;
-      const targetY = viewportRect.top + viewportRect.height / 2;
-      const deltaY = caretY - targetY;
-
-      if (Math.abs(deltaY) > 2) {
-        viewport.scrollTop += deltaY;
+      // Measure caret X offset in pixels using standard canvas text metrics
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      let textWidth = 0;
+      if (ctx) {
+        ctx.font = `${computed.fontSize} ${computed.fontFamily}`;
+        textWidth = ctx.measureText(currentLineText).width;
       }
+
+      const viewportRect = viewport.getBoundingClientRect();
+      const targetCenterX = viewportRect.width / 2;
+      const targetCenterY = viewportRect.height / 2;
+
+      const caretXInContainer = paddingLeft + textWidth;
+      const caretYInContainer = paddingTop + lineIndex * lineHeight + lineHeight / 2;
+
+      const targetTx = Math.round(targetCenterX - caretXInContainer);
+      const targetTy = Math.round(targetCenterY - caretYInContainer);
+
+      const lastTx = sourceTransformRef.current.tx;
+      const lastTy = sourceTransformRef.current.ty;
+      const deltaX = Math.abs(targetTx - lastTx);
+      const deltaY = Math.abs(targetTy - lastTy);
+
+      const isLineWrapOrJump = forceGlide || deltaX > 60 || deltaY > 40;
+
+      if (isLineWrapOrJump) {
+        container.style.transition = "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)";
+        sourceGlidingRef.current = true;
+        if (sourceGlideTimerRef.current !== null) {
+          clearTimeout(sourceGlideTimerRef.current);
+        }
+        sourceGlideTimerRef.current = window.setTimeout(() => {
+          if (container) {
+            container.style.transition = "none";
+          }
+          sourceGlidingRef.current = false;
+        }, 230);
+      } else if (!sourceGlidingRef.current) {
+        container.style.transition = "none";
+      }
+
+      sourceTransformRef.current = { tx: targetTx, ty: targetTy };
+      container.style.transform = `translate3d(${targetTx}px, ${targetTy}px, 0)`;
     });
   }, [settings.typewriterMode, settings.fontSize, settings.lineHeight]);
 
   useEffect(() => {
     if (activeTab.isSourceMode) {
       if (settings.typewriterMode) {
-        scheduleSourceTypewriterScroll();
+        scheduleSourceTypewriterScroll(true);
+      } else {
+        const container = document.querySelector<HTMLElement>(".source-mode-container");
+        if (container) {
+          container.style.transform = "";
+          container.style.transition = "";
+        }
+        sourceTransformRef.current = { tx: 0, ty: 0 };
+        sourceGlidingRef.current = false;
+        if (sourceGlideTimerRef.current !== null) {
+          clearTimeout(sourceGlideTimerRef.current);
+          sourceGlideTimerRef.current = null;
+        }
       }
     } else if (settings.typewriterMode) {
       editorRef.current?.centerTypewriter();
     }
   }, [activeTab.isSourceMode, settings.typewriterMode, scheduleSourceTypewriterScroll]);
+
+  // Enable smooth mouse wheel browsing in source mode typewriter
+  useEffect(() => {
+    const viewport = document.querySelector<HTMLElement>(".editor-viewport");
+    if (!viewport) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!settings.typewriterMode || !activeTab.isSourceMode) return;
+      const container = document.querySelector<HTMLElement>(".source-mode-container");
+      if (!container) return;
+
+      sourceTransformRef.current.ty -= e.deltaY;
+      container.style.transition = "none";
+      container.style.transform = `translate3d(${sourceTransformRef.current.tx}px, ${sourceTransformRef.current.ty}px, 0)`;
+    };
+
+    viewport.addEventListener("wheel", handleWheel, { passive: true });
+    return () => viewport.removeEventListener("wheel", handleWheel);
+  }, [settings.typewriterMode, activeTab.isSourceMode]);
 
   // Recenter on window resize
   useEffect(() => {
@@ -614,9 +687,9 @@ export default function App() {
                   handleSourceChange(e);
                   scheduleSourceTypewriterScroll();
                 }}
-                onSelect={scheduleSourceTypewriterScroll}
-                onKeyUp={scheduleSourceTypewriterScroll}
-                onClick={scheduleSourceTypewriterScroll}
+                onSelect={() => scheduleSourceTypewriterScroll()}
+                onKeyUp={() => scheduleSourceTypewriterScroll()}
+                onClick={() => scheduleSourceTypewriterScroll()}
                 placeholder="마크다운 원본 내용을 입력하세요..."
                 autoFocus
               />
