@@ -421,7 +421,7 @@ export default function App() {
     [activeTab]
   );
 
-  // Source Code Mode Typewriter Centering
+  // Source Code Mode Typewriter Centering (Both Horizontal & Vertical Exact Center)
   const scheduleSourceTypewriterScroll = useCallback(() => {
     if (!settings.typewriterMode) return;
     requestAnimationFrame(() => {
@@ -435,21 +435,40 @@ export default function App() {
 
       const selectionStart = textarea.selectionStart;
       const textBefore = textarea.value.substring(0, selectionStart);
-      const lineIndex = textBefore.split("\n").length - 1;
+      const lines = textBefore.split("\n");
+      const currentLineText = lines[lines.length - 1];
+      const lineIndex = lines.length - 1;
 
       const computed = window.getComputedStyle(textarea);
       const lineHeight = parseFloat(computed.lineHeight) || (settings.fontSize * settings.lineHeight);
 
-      const lineTopInTextarea = lineIndex * lineHeight;
+      // Measure accurate character width for monospace font
+      let charWidth = (settings.fontSize || 15) * 0.60;
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.font = `${computed.fontSize} ${computed.fontFamily}`;
+        const measured = ctx.measureText("M").width;
+        if (measured > 0) charWidth = measured;
+      }
+
       const textareaRect = textarea.getBoundingClientRect();
       const viewportRect = viewport.getBoundingClientRect();
 
-      const lineClientY = textareaRect.top + lineTopInTextarea;
-      const targetY = viewportRect.top + viewportRect.height * 0.45;
-      const delta = lineClientY - targetY;
+      const caretX = textareaRect.left + currentLineText.length * charWidth;
+      const caretY = textareaRect.top + lineIndex * lineHeight + lineHeight / 2;
 
-      if (Math.abs(delta) > 4) {
-        viewport.scrollTop += delta;
+      const targetX = viewportRect.left + viewportRect.width / 2;
+      const targetY = viewportRect.top + viewportRect.height / 2;
+
+      const deltaX = caretX - targetX;
+      const deltaY = caretY - targetY;
+
+      if (Math.abs(deltaX) > 2) {
+        viewport.scrollLeft += deltaX;
+      }
+      if (Math.abs(deltaY) > 2) {
+        viewport.scrollTop += deltaY;
       }
     });
   }, [settings.typewriterMode, settings.fontSize, settings.lineHeight]);
@@ -457,8 +476,25 @@ export default function App() {
   useEffect(() => {
     if (activeTab.isSourceMode) {
       scheduleSourceTypewriterScroll();
+    } else if (settings.typewriterMode) {
+      editorRef.current?.centerTypewriter();
     }
   }, [activeTab.isSourceMode, settings.typewriterMode, scheduleSourceTypewriterScroll]);
+
+  // Recenter on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (settings.typewriterMode) {
+        if (activeTab.isSourceMode) {
+          scheduleSourceTypewriterScroll();
+        } else {
+          editorRef.current?.centerTypewriter();
+        }
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [settings.typewriterMode, activeTab.isSourceMode, scheduleSourceTypewriterScroll]);
 
   // Keyboard Shortcuts (Cmd/Ctrl + S, O, N, T, W, /, ,, F9/Cmd+Alt+T)
   useEffect(() => {

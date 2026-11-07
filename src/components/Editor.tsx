@@ -18,6 +18,7 @@ export interface EditorHandle {
   insertText: (text: string) => void;
   focus: () => void;
   scrollToHeading: (pos: number) => void;
+  centerTypewriter: () => void;
 }
 
 interface EditorProps {
@@ -35,23 +36,34 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
 
     const scrollTypewriterCursor = useCallback((currentEditor: ReturnType<typeof useEditor>) => {
       if (!typewriterRef.current || !currentEditor || !currentEditor.view) return;
-      if (!currentEditor.isFocused) return;
 
       try {
         const { from } = currentEditor.state.selection;
         const coords = currentEditor.view.coordsAtPos(from);
+        if (!coords || typeof coords.left !== "number") return;
+
         const scrollContainer = currentEditor.view.dom.closest(".editor-viewport") as HTMLElement | null;
         if (!scrollContainer) return;
 
         const containerRect = scrollContainer.getBoundingClientRect();
-        const targetY = containerRect.top + containerRect.height * 0.45;
-        const delta = coords.top - targetY;
+        // Exact horizontal & vertical center of the viewport
+        const targetX = containerRect.left + containerRect.width / 2;
+        const targetY = containerRect.top + containerRect.height / 2;
 
-        if (Math.abs(delta) > 4) {
-          scrollContainer.scrollTop += delta;
+        const caretX = coords.left;
+        const caretY = (coords.top + coords.bottom) / 2;
+
+        const deltaX = caretX - targetX;
+        const deltaY = caretY - targetY;
+
+        if (Math.abs(deltaX) > 2) {
+          scrollContainer.scrollLeft += deltaX;
+        }
+        if (Math.abs(deltaY) > 2) {
+          scrollContainer.scrollTop += deltaY;
         }
       } catch {
-        // Coords might be temporarily unavailable during DOM mutations
+        // Coords might be temporarily unavailable during rapid DOM mutations
       }
     }, []);
 
@@ -141,8 +153,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
 
     useEffect(() => {
       typewriterRef.current = typewriterMode;
-      if (typewriterMode && editor) {
-        scheduleTypewriterScroll(editor);
+      const scrollContainer = document.querySelector<HTMLElement>(".editor-viewport");
+      if (typewriterMode) {
+        if (editor) {
+          scheduleTypewriterScroll(editor);
+        }
+      } else {
+        if (scrollContainer) {
+          scrollContainer.scrollLeft = 0;
+        }
       }
     }, [typewriterMode, editor, scheduleTypewriterScroll]);
 
@@ -174,6 +193,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         if (dom && dom.node) {
           const el = dom.node instanceof HTMLElement ? dom.node : dom.node.parentElement;
           el?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      },
+      centerTypewriter: () => {
+        if (editor) {
+          scheduleTypewriterScroll(editor);
         }
       },
     }));

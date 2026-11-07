@@ -359,10 +359,17 @@ body, html {
   transition: background-color 0.2s ease, padding 0.18s ease;
 }
 
-/* Typewriter Mode: Generous top & bottom scroll cushions for caret centering */
+/* Typewriter Mode: Exact horizontal & vertical crosshair caret centering */
 .editor-viewport.typewriter-mode {
-  padding-top: 42vh;
-  padding-bottom: 55vh;
+  padding: 50vh 50vw;
+  overflow-x: auto;
+  overflow-y: auto;
+  display: block;
+  scrollbar-width: none;
+}
+
+.editor-viewport.typewriter-mode::-webkit-scrollbar {
+  display: none;
 }
 
 /* Max Width Variants */
