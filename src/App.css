@@ -352,43 +352,23 @@ body, html {
 .editor-viewport {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   justify-content: center;
   background-color: var(--bg-primary);
   padding: 40px 32px 120px 32px;
   transition: background-color 0.2s ease, padding 0.18s ease;
+  contain: style layout;
+  will-change: scroll-position;
 }
 
-/* Typewriter Mode: The cursor is locked at dead center, and sentences/paper glide */
+/* Typewriter Mode: Rock-solid horizontal center column with exact 50% vertical caret centering */
 .editor-viewport.typewriter-mode {
-  position: relative;
-  overflow: hidden !important;
-  display: block !important;
-  padding: 0 !important;
+  padding-top: calc(50vh - 1.5em) !important;
+  padding-bottom: 50vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
 }
-
-.editor-viewport.typewriter-mode .editor-wrapper,
-.editor-viewport.typewriter-mode .source-mode-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  margin: 0 !important;
-  width: 860px;
-  max-width: 860px;
-  will-change: transform;
-}
-
-.width-narrow.typewriter-mode .editor-wrapper,
-.width-narrow.typewriter-mode .source-mode-container { width: 720px !important; max-width: 720px !important; }
-
-.width-default.typewriter-mode .editor-wrapper,
-.width-default.typewriter-mode .source-mode-container { width: 860px !important; max-width: 860px !important; }
-
-.width-wide.typewriter-mode .editor-wrapper,
-.width-wide.typewriter-mode .source-mode-container { width: 1080px !important; max-width: 1080px !important; }
-
-.width-full.typewriter-mode .editor-wrapper,
-.width-full.typewriter-mode .source-mode-container { width: 1200px !important; max-width: 1200px !important; }
 
 /* Max Width Variants */
 .width-narrow .editor-wrapper,
@@ -410,12 +390,13 @@ body, html {
 .editor-wrapper,
 .editor-container {
   width: 100%;
+  margin: 0 auto;
 }
 
 /* Source Code Mode */
 .source-mode-container {
   width: 100%;
-  min-height: 100%;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
 }
@@ -432,6 +413,8 @@ body, html {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 15px;
   line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
   overflow: hidden;
 }
 

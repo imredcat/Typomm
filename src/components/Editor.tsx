@@ -33,6 +33,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
   ({ initialContent, typewriterMode = false, onChange, onOutlineUpdate, onStatsUpdate }, ref) => {
     const typewriterRef = useRef(typewriterMode);
     const rafIdRef = useRef<number | null>(null);
+    const changeTimerRef = useRef<number | null>(null);
+    const statsTimerRef = useRef<number | null>(null);
 
     const scrollTypewriterCursor = useCallback((currentEditor: ReturnType<typeof useEditor>) => {
       if (!typewriterRef.current || !currentEditor || !currentEditor.view) return;
@@ -40,28 +42,20 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
       try {
         const { from } = currentEditor.state.selection;
         const coords = currentEditor.view.coordsAtPos(from);
-        if (!coords || typeof coords.left !== "number") return;
+        if (!coords || typeof coords.top !== "number") return;
 
         const viewport = currentEditor.view.dom.closest(".editor-viewport") as HTMLElement | null;
-        const paper = currentEditor.view.dom.closest(".editor-wrapper") as HTMLElement | null;
-        if (!viewport || !paper) return;
+        if (!viewport) return;
 
         const viewportRect = viewport.getBoundingClientRect();
-        const paperRect = paper.getBoundingClientRect();
+        // Exact vertical center of the viewport
+        const targetY = viewportRect.top + viewportRect.height / 2;
+        const caretY = (coords.top + coords.bottom) / 2;
+        const deltaY = caretY - targetY;
 
-        // Exact horizontal & vertical center of the viewport window
-        const targetX = viewportRect.width / 2;
-        const targetY = viewportRect.height / 2;
-
-        // Caret position relative to the paper container
-        const caretXInPaper = coords.left - paperRect.left;
-        const caretYInPaper = (coords.top + coords.bottom) / 2 - paperRect.top;
-
-        // Position paper so caret is permanently locked at (targetX, targetY)
-        const paperLeft = Math.round(targetX - caretXInPaper);
-        const paperTop = Math.round(targetY - caretYInPaper);
-
-        paper.style.transform = `translate3d(${paperLeft}px, ${paperTop}px, 0)`;
+        if (Math.abs(deltaY) > 2) {
+          viewport.scrollTop += deltaY;
+        }
       } catch {
         // Coords might be temporarily unavailable during rapid DOM mutations
       }
@@ -119,32 +113,42 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         },
       },
       onUpdate: ({ editor: currentEditor }) => {
-        // @ts-expect-error tiptap-markdown storage type
-        const markdown = currentEditor.storage.markdown.getMarkdown() as string;
-        onChange(markdown);
-
-        // Stats calculation
-        const text = currentEditor.getText();
-        const chars = text.length;
-        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-        onStatsUpdate({ words, chars });
-
-        // Outline calculation
-        const items: OutlineItem[] = [];
-        currentEditor.state.doc.descendants((node, pos) => {
-          if (node.type.name === "heading") {
-            items.push({
-              id: `heading-${pos}`,
-              level: node.attrs.level,
-              text: node.textContent,
-              pos,
-            });
-          }
-        });
-        onOutlineUpdate(items);
-
-        // Typewriter Mode scroll
+        // Instant Typewriter scroll response (< 16ms)
         scheduleTypewriterScroll(currentEditor);
+
+        // Debounce markdown string serialization to keep typing latency < 1ms on large documents
+        if (changeTimerRef.current !== null) {
+          clearTimeout(changeTimerRef.current);
+        }
+        changeTimerRef.current = window.setTimeout(() => {
+          // @ts-expect-error tiptap-markdown storage type
+          const markdown = currentEditor.storage.markdown.getMarkdown() as string;
+          onChange(markdown);
+        }, 150);
+
+        // Debounce Stats & Outline calculation (250ms) for high performance
+        if (statsTimerRef.current !== null) {
+          clearTimeout(statsTimerRef.current);
+        }
+        statsTimerRef.current = window.setTimeout(() => {
+          const text = currentEditor.getText();
+          const chars = text.length;
+          const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+          onStatsUpdate({ words, chars });
+
+          const items: OutlineItem[] = [];
+          currentEditor.state.doc.descendants((node, pos) => {
+            if (node.type.name === "heading") {
+              items.push({
+                id: `heading-${pos}`,
+                level: node.attrs.level,
+                text: node.textContent,
+                pos,
+              });
+            }
+          });
+          onOutlineUpdate(items);
+        }, 250);
       },
       onSelectionUpdate: ({ editor: currentEditor }) => {
         scheduleTypewriterScroll(currentEditor);
@@ -153,21 +157,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
 
     useEffect(() => {
       typewriterRef.current = typewriterMode;
-      const paper = document.querySelector<HTMLElement>(".editor-wrapper");
-      if (typewriterMode) {
-        if (editor) {
-          scheduleTypewriterScroll(editor);
-        }
-      } else {
-        if (paper) {
-          paper.style.transform = "";
-        }
+      if (typewriterMode && editor) {
+        scheduleTypewriterScroll(editor);
       }
     }, [typewriterMode, editor, scheduleTypewriterScroll]);
 
     useImperativeHandle(ref, () => ({
       getMarkdown: () => {
         if (!editor) return "";
+        if (changeTimerRef.current !== null) {
+          clearTimeout(changeTimerRef.current);
+          changeTimerRef.current = null;
+        }
         // @ts-expect-error tiptap-markdown storage type
         return editor.storage.markdown.getMarkdown() as string;
       },
