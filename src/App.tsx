@@ -78,6 +78,9 @@ export default function App() {
   const sourceTransformRef = useRef<{ tx: number; ty: number }>({ tx: 0, ty: 0 });
   const sourceGlidingRef = useRef<boolean>(false);
   const sourceGlideTimerRef = useRef<number | null>(null);
+  const sourceComposingRef = useRef<boolean>(false);
+  const sourceLastCompletedPosRef = useRef<number>(-1);
+  const sourceLastLenRef = useRef<number>(0);
 
   // Active tab helper
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
@@ -437,8 +440,20 @@ export default function App() {
       textarea.style.height = "auto";
       textarea.style.height = `${Math.max(textarea.scrollHeight, 400)}px`;
 
-      const selectionStart = textarea.selectionStart;
-      const textBefore = textarea.value.substring(0, selectionStart);
+      const selectionEnd = textarea.selectionEnd;
+      const fullText = textarea.value;
+      const charBefore = selectionEnd > 0 ? fullText.slice(selectionEnd - 1, selectionEnd) : "";
+      const isComposingKorean =
+        sourceComposingRef.current && /[ㄱ-ㅎㅏ-ㅣ가-힣\u1100-\u11FF\u3130-\u318F]/.test(charBefore);
+
+      const completedPos = isComposingKorean ? Math.max(0, selectionEnd - 1) : selectionEnd;
+
+      if (!forceGlide && isComposingKorean && completedPos === sourceLastCompletedPosRef.current) {
+        sourceLastLenRef.current = fullText.length;
+        return;
+      }
+
+      const textBefore = fullText.substring(0, completedPos);
       const lines = textBefore.split("\n");
       const lineIndex = lines.length - 1;
       const currentLineText = lines[lineIndex];
@@ -464,11 +479,26 @@ export default function App() {
       const caretXInContainer = paddingLeft + textWidth;
       const caretYInContainer = paddingTop + lineIndex * lineHeight + lineHeight / 2;
 
-      const targetTx = Math.round(targetCenterX - caretXInContainer);
+      let targetTx = Math.round(targetCenterX - caretXInContainer);
       const targetTy = Math.round(targetCenterY - caretYInContainer);
 
       const lastTx = sourceTransformRef.current.tx;
       const lastTy = sourceTransformRef.current.ty;
+
+      const isForwardTyping =
+        !forceGlide &&
+        fullText.length >= sourceLastLenRef.current &&
+        sourceLastCompletedPosRef.current >= 0 &&
+        completedPos >= sourceLastCompletedPosRef.current;
+      const isSameLine = Math.abs(targetTy - lastTy) < 10;
+
+      if (isForwardTyping && isSameLine && targetTx > lastTx && (lastTx !== 0 || lastTy !== 0)) {
+        targetTx = lastTx;
+      }
+
+      sourceLastCompletedPosRef.current = completedPos;
+      sourceLastLenRef.current = fullText.length;
+
       const deltaX = Math.abs(targetTx - lastTx);
       const deltaY = Math.abs(targetTy - lastTy);
 
@@ -506,6 +536,7 @@ export default function App() {
           container.style.transition = "";
         }
         sourceTransformRef.current = { tx: 0, ty: 0 };
+        sourceLastCompletedPosRef.current = -1;
         sourceGlidingRef.current = false;
         if (sourceGlideTimerRef.current !== null) {
           clearTimeout(sourceGlideTimerRef.current);
@@ -690,6 +721,16 @@ export default function App() {
                 onSelect={() => scheduleSourceTypewriterScroll()}
                 onKeyUp={() => scheduleSourceTypewriterScroll()}
                 onClick={() => scheduleSourceTypewriterScroll()}
+                onCompositionStart={() => {
+                  sourceComposingRef.current = true;
+                }}
+                onCompositionUpdate={() => {
+                  sourceComposingRef.current = true;
+                }}
+                onCompositionEnd={() => {
+                  sourceComposingRef.current = false;
+                  scheduleSourceTypewriterScroll();
+                }}
                 placeholder="마크다운 원본 내용을 입력하세요..."
                 autoFocus
               />

@@ -366,6 +366,7 @@ body, html {
 .editor-viewport.typewriter-mode {
   position: relative !important;
   overflow: hidden !important;
+  overflow: clip !important;
   padding: 0 !important;
   display: block !important;
 }
