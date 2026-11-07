@@ -835,3 +835,136 @@ input:checked + .slider:before {
 .confirm-btn:hover {
   background-color: var(--accent-hover);
 }
+
+/* ----------------- Typora Tab Bar ----------------- */
+.typora-tabbar {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: 0 8px;
+  user-select: none;
+  z-index: 9;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.tab-list {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow-x: auto;
+  flex: 1;
+  scrollbar-width: none; /* Hide scrollbar Firefox */
+}
+
+.tab-list::-webkit-scrollbar {
+  display: none; /* Hide scrollbar Chrome/Safari */
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  max-width: 210px;
+  min-width: 110px;
+  padding: 0 8px 0 10px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  position: relative;
+}
+
+.tab-item:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tab-item.active {
+  background-color: var(--bg-primary);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.tab-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.tab-item.active .tab-icon {
+  color: var(--accent-color);
+}
+
+.tab-title {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-close-btn {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.tab-close-btn:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tab-close-btn.dirty-indicator .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--accent-color);
+  display: block;
+}
+
+.tab-close-btn.dirty-indicator .close-x {
+  display: none;
+}
+
+.tab-close-btn.dirty-indicator:hover .dot {
+  display: none;
+}
+
+.tab-close-btn.dirty-indicator:hover .close-x {
+  display: block;
+}
+
+.new-tab-btn {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-left: 4px;
+  transition: all 0.12s ease;
+}
+
+.new-tab-btn:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}

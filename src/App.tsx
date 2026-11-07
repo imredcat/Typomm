@@ -2,64 +2,56 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Editor, EditorHandle } from "./components/Editor";
 import { Toolbar } from "./components/Toolbar";
+import { TabBar } from "./components/TabBar";
 import { Outline } from "./components/Outline";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsModal } from "./components/SettingsModal";
-import { FileInfo, OutlineItem, AppSettings, DEFAULT_SETTINGS, TyporaTheme } from "./types";
+import { FileInfo, OutlineItem, AppSettings, DEFAULT_SETTINGS, TyporaTheme, TabItem } from "./types";
 import "./App.css";
 
 const SETTINGS_STORAGE_KEY = "typomm_settings";
 
-const DEFAULT_MARKDOWN = `# Typomm
+const INITIAL_MARKDOWN = `# Typomm ✍️
 
-Typora의 고유한 **실시간 인라인 위지윅(Live Preview)**과 미니멀한 타이포그래피를 그대로 경험해 보세요.
-상단 툴바의 테마 메뉴나 **환경설정(\`Cmd + ,\`)**에서 Typora 공식 테마(GitHub, Night, Newsprint, Gothic)와 글꼴을 자유롭게 변경할 수 있습니다.
+Typora의 고유한 **실시간 인라인 위지윅(Live Preview)**과 **다중 탭(Multi-tabs)** 기능을 경험해 보세요.
 
-## ✨ 타이포라의 감성을 담은 주요 기능
-- **실시간 인라인 위지윅**: 별도 분할창 없이 작성 즉시 서식이 렌더링됩니다.
-- **Typora 오리지널 테마**:
-  - **GitHub**: 화이트 & 클린 기본 테마
-  - **Night**: 눈이 편안한 에메랄드 다크 테마
-  - **Newsprint**: 따뜻한 크림 페이퍼 & 세리프 북 스타일
-  - **Gothic**: 고대비 흑백 모던 에디토리얼 테마
-- **환경설정 지원 (\`Cmd + ,\`)**: 글꼴 계열(Sans/Serif/Mono), 폰트 크기, 행간, 본문 최대 폭(720px~100%) 커스텀
-- **소스 코드 모드 (\`Cmd + /\`)**: 원본 마크다운 텍스트와 실시간 위지윅 모드를 자유롭게 왕복
+## ✨ 새롭게 추가된 탭 기능
+- **다중 문서 탭 지원**: 상단 \`+\` 버튼이나 \`Cmd + T\` / \`Cmd + N\` 단축키로 새 문서 탭을 추가할 수 있습니다.
+- **탭별 독립 상태 유지**: 각 탭마다 작성 내용, 저장 경로, 수정 여부(\`•\`)가 개별적으로 관리됩니다.
+- **간편한 탭 닫기 (\`Cmd + W\`)**: 탭의 \`X\` 버튼을 누르거나 단축키를 눌러 현재 탭을 닫을 수 있습니다.
+- **기존 문서 열기 (\`Cmd + O\`)**: 파일을 열면 새 탭으로 열리며, 이미 열려 있는 파일은 해당 탭으로 즉시 전환됩니다.
 
 ---
 
 ### 1. 할 일 목록 (Task List)
-- [x] Rust + Tauri v2 초경량 데스크톱 엔진 구축
-- [x] Typora 공식 테마 (GitHub, Night, Newsprint, Gothic) 탑재
-- [x] 환경설정 모달 및 단축키(\`Cmd + ,\`) 지원
-- [ ] 사용자 커스텀 CSS 테마 추가 지원
+- [x] 다중 탭 시스템(Tab Bar) 구축 완료
+- [x] 탭 닫기/전환/새 탭 단축키(\`Cmd + T\`, \`Cmd + W\`, \`Cmd + N\`) 연동
+- [x] 빈티지 타자기 키캡 아이콘 적용 완료
 
 ### 2. 코드 블록
 \`\`\`rust
 fn main() {
-    println!("Typomm: Fast, beautiful, and light.");
+    println!("Typomm with Multi-tab support!");
 }
 \`\`\`
 
-### 3. 표 (Table)
-| 테마 명 | 스타일 특징 | 추천 용도 |
-| :--- | :--- | :--- |
-| **GitHub** | 미니멀 화이트, 회색 구분선 | 일상적인 기술 문서, README |
-| **Night** | 딥 차콜, 네온 에메랄드 악센트 | 야간 집중 작업, 다크 모드 |
-| **Newsprint**| 웜 크림 페이퍼, 세리프 폰트 | 장문 에세이, 독서 및 글쓰기 |
-| **Gothic** | 굵고 선명한 흑백 대비 | 깔끔한 브리핑, 보고서 |
-
-### 4. 인용구
-> "A designer knows he has achieved perfection not when there is nothing more to add, but when there is nothing left to take away."
-> — Antoine de Saint-Exupéry
-
-상단의 **테마 드롭다운**을 눌러보거나 **환경설정 아이콘**을 클릭해 보세요!
+상단 탭 바의 **\`+\` 버튼**을 누르거나 새 파일을 열어 여러 문서를 동시에 편집해 보세요!
 `;
 
 export default function App() {
-  const [content, setContent] = useState<string>(DEFAULT_MARKDOWN);
-  const [currentFile, setCurrentFile] = useState<{ path: string; name: string } | null>(null);
-  const [isDirty, setIsDirty] = useState<boolean>(false);
-  const [isSourceMode, setIsSourceMode] = useState<boolean>(false);
+  // Tabs State
+  const [tabs, setTabs] = useState<TabItem[]>([
+    {
+      id: "tab-1",
+      path: null,
+      name: "Typomm 환영 문서",
+      content: INITIAL_MARKDOWN,
+      isDirty: false,
+      isSourceMode: false,
+    },
+  ]);
+  const [activeTabId, setActiveTabId] = useState<string>("tab-1");
+
   const [isOutlineOpen, setIsOutlineOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 
@@ -81,6 +73,9 @@ export default function App() {
 
   const editorRef = useRef<EditorHandle>(null);
 
+  // Active tab helper
+  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+
   const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
     setSettings((prev) => {
       const updated = { ...prev, ...newSettings };
@@ -93,89 +88,238 @@ export default function App() {
     });
   }, []);
 
-  // File Operations
-  const handleNew = useCallback(() => {
-    if (isDirty) {
-      const confirmDiscard = window.confirm("저장되지 않은 변경사항이 있습니다. 새 문서를 여시겠습니까?");
-      if (!confirmDiscard) return;
+  // Sync editor content whenever active tab changes
+  useEffect(() => {
+    if (activeTab && editorRef.current) {
+      editorRef.current.setMarkdown(activeTab.content);
     }
-    const emptyContent = "# 제목 없음\n\n";
-    setContent(emptyContent);
-    setCurrentFile(null);
-    setIsDirty(false);
-    editorRef.current?.setMarkdown(emptyContent);
-  }, [isDirty]);
+  }, [activeTabId]);
 
+  // Tab Operations
+  const handleNewTab = useCallback(() => {
+    // Save current active tab content from editor first
+    const currentMarkdown = editorRef.current?.getMarkdown();
+    const newTabId = `tab-${Date.now()}`;
+    const newTabName = `제목 없음 ${tabs.length + 1}`;
+    const newTabContent = "# 제목 없음\n\n";
+
+    setTabs((prev) => {
+      const updated = prev.map((t) =>
+        t.id === activeTabId && currentMarkdown !== undefined ? { ...t, content: currentMarkdown } : t
+      );
+      return [
+        ...updated,
+        {
+          id: newTabId,
+          path: null,
+          name: newTabName,
+          content: newTabContent,
+          isDirty: false,
+          isSourceMode: false,
+        },
+      ];
+    });
+
+    setActiveTabId(newTabId);
+    setTimeout(() => {
+      editorRef.current?.setMarkdown(newTabContent);
+      editorRef.current?.focus();
+    }, 10);
+  }, [activeTabId, tabs.length]);
+
+  const handleSelectTab = useCallback(
+    (targetId: string) => {
+      if (targetId === activeTabId) return;
+
+      // Persist current editor text to active tab
+      const currentMarkdown = editorRef.current?.getMarkdown() || activeTab.content;
+      setTabs((prev) =>
+        prev.map((t) => (t.id === activeTabId ? { ...t, content: currentMarkdown } : t))
+      );
+
+      const targetTab = tabs.find((t) => t.id === targetId);
+      setActiveTabId(targetId);
+
+      if (targetTab && editorRef.current) {
+        editorRef.current.setMarkdown(targetTab.content);
+      }
+    },
+    [activeTabId, activeTab, tabs]
+  );
+
+  const handleCloseTab = useCallback(
+    (targetId: string, e?: React.MouseEvent) => {
+      if (e) {
+        e.stopPropagation();
+      }
+
+      const targetTab = tabs.find((t) => t.id === targetId);
+      if (!targetTab) return;
+
+      if (targetTab.isDirty) {
+        const confirmClose = window.confirm(
+          `"${targetTab.name}"에 저장되지 않은 변경사항이 있습니다. 닫으시겠습니까?`
+        );
+        if (!confirmClose) return;
+      }
+
+      // If only one tab left, reset it to empty
+      if (tabs.length === 1) {
+        const emptyTab: TabItem = {
+          id: `tab-${Date.now()}`,
+          path: null,
+          name: "제목 없음",
+          content: "# 제목 없음\n\n",
+          isDirty: false,
+          isSourceMode: false,
+        };
+        setTabs([emptyTab]);
+        setActiveTabId(emptyTab.id);
+        editorRef.current?.setMarkdown(emptyTab.content);
+        return;
+      }
+
+      const closingIndex = tabs.findIndex((t) => t.id === targetId);
+      const remainingTabs = tabs.filter((t) => t.id !== targetId);
+      setTabs(remainingTabs);
+
+      if (targetId === activeTabId) {
+        // Switch to adjacent tab
+        const nextIndex = Math.min(closingIndex, remainingTabs.length - 1);
+        const nextTab = remainingTabs[nextIndex];
+        setActiveTabId(nextTab.id);
+        setTimeout(() => {
+          editorRef.current?.setMarkdown(nextTab.content);
+        }, 10);
+      }
+    },
+    [tabs, activeTabId]
+  );
+
+  // File Open (Opens in existing tab if already open, or creates a new tab)
   const handleOpen = useCallback(async () => {
     try {
       const res = await invoke<FileInfo | null>("open_file_dialog");
       if (res) {
-        setCurrentFile({ path: res.path, name: res.name });
-        setContent(res.content);
-        setIsDirty(false);
-        editorRef.current?.setMarkdown(res.content);
+        // Check if file is already open in a tab
+        const existingTab = tabs.find((t) => t.path === res.path);
+        if (existingTab) {
+          handleSelectTab(existingTab.id);
+          return;
+        }
+
+        // If current active tab is empty and unsaved, reuse it
+        if (!activeTab.path && !activeTab.isDirty && (activeTab.content.trim() === "" || activeTab.content === "# 제목 없음\n\n")) {
+          setTabs((prev) =>
+            prev.map((t) =>
+              t.id === activeTab.id
+                ? { ...t, path: res.path, name: res.name, content: res.content, isDirty: false }
+                : t
+            )
+          );
+          editorRef.current?.setMarkdown(res.content);
+          return;
+        }
+
+        // Otherwise open in a new tab
+        const newTabId = `tab-${Date.now()}`;
+        const newTab: TabItem = {
+          id: newTabId,
+          path: res.path,
+          name: res.name,
+          content: res.content,
+          isDirty: false,
+          isSourceMode: false,
+        };
+
+        setTabs((prev) => [...prev, newTab]);
+        setActiveTabId(newTabId);
+        setTimeout(() => {
+          editorRef.current?.setMarkdown(res.content);
+        }, 10);
       }
     } catch (err) {
       console.error("파일 열기 실패:", err);
       alert(`파일 열기 실패: ${err}`);
     }
-  }, []);
+  }, [tabs, activeTab, handleSelectTab]);
 
+  // File Save
   const handleSave = useCallback(async () => {
-    const currentMarkdown = isSourceMode ? content : editorRef.current?.getMarkdown() || content;
+    const currentMarkdown = activeTab.isSourceMode
+      ? activeTab.content
+      : editorRef.current?.getMarkdown() || activeTab.content;
+
     try {
-      if (currentFile) {
+      if (activeTab.path) {
         await invoke("save_file", {
-          path: currentFile.path,
+          path: activeTab.path,
           content: currentMarkdown,
         });
-        setIsDirty(false);
+        setTabs((prev) =>
+          prev.map((t) => (t.id === activeTab.id ? { ...t, content: currentMarkdown, isDirty: false } : t))
+        );
       } else {
         const res = await invoke<FileInfo | null>("save_file_as_dialog", {
-          defaultName: "Untitled.md",
+          defaultName: activeTab.name.endsWith(".md") ? activeTab.name : `${activeTab.name}.md`,
           content: currentMarkdown,
         });
         if (res) {
-          setCurrentFile({ path: res.path, name: res.name });
-          setIsDirty(false);
+          setTabs((prev) =>
+            prev.map((t) =>
+              t.id === activeTab.id
+                ? { ...t, path: res.path, name: res.name, content: currentMarkdown, isDirty: false }
+                : t
+            )
+          );
         }
       }
     } catch (err) {
       console.error("파일 저장 실패:", err);
       alert(`파일 저장 실패: ${err}`);
     }
-  }, [content, currentFile, isSourceMode]);
+  }, [activeTab]);
 
   const handleSaveAs = useCallback(async () => {
-    const currentMarkdown = isSourceMode ? content : editorRef.current?.getMarkdown() || content;
+    const currentMarkdown = activeTab.isSourceMode
+      ? activeTab.content
+      : editorRef.current?.getMarkdown() || activeTab.content;
+
     try {
       const res = await invoke<FileInfo | null>("save_file_as_dialog", {
-        defaultName: currentFile ? currentFile.name : "Untitled.md",
+        defaultName: activeTab.name.endsWith(".md") ? activeTab.name : `${activeTab.name}.md`,
         content: currentMarkdown,
       });
       if (res) {
-        setCurrentFile({ path: res.path, name: res.name });
-        setIsDirty(false);
+        setTabs((prev) =>
+          prev.map((t) =>
+            t.id === activeTab.id
+              ? { ...t, path: res.path, name: res.name, content: currentMarkdown, isDirty: false }
+              : t
+          )
+        );
       }
     } catch (err) {
       console.error("다른 이름으로 저장 실패:", err);
       alert(`다른 이름으로 저장 실패: ${err}`);
     }
-  }, [content, currentFile, isSourceMode]);
+  }, [activeTab]);
 
   // Mode & UI Toggles
   const handleToggleSourceMode = useCallback(() => {
-    if (!isSourceMode) {
-      const md = editorRef.current?.getMarkdown() || content;
-      setContent(md);
-      setIsSourceMode(true);
-    } else {
-      setIsSourceMode(false);
+    const md = editorRef.current?.getMarkdown() || activeTab.content;
+    const newSourceMode = !activeTab.isSourceMode;
+
+    setTabs((prev) =>
+      prev.map((t) => (t.id === activeTab.id ? { ...t, content: md, isSourceMode: newSourceMode } : t))
+    );
+
+    if (!newSourceMode) {
       setTimeout(() => {
-        editorRef.current?.setMarkdown(content);
+        editorRef.current?.setMarkdown(md);
       }, 0);
     }
-  }, [content, isSourceMode]);
+  }, [activeTab]);
 
   const handleToggleOutline = () => {
     setIsOutlineOpen((prev) => !prev);
@@ -185,7 +329,7 @@ export default function App() {
     updateSettings({ theme });
   };
 
-  // Keyboard Shortcuts (Cmd/Ctrl + S, O, N, /, ,)
+  // Keyboard Shortcuts (Cmd/Ctrl + S, O, N, T, W, /, ,)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMeta = e.metaKey || e.ctrlKey;
@@ -199,9 +343,12 @@ export default function App() {
       } else if (isMeta && e.key.toLowerCase() === "o") {
         e.preventDefault();
         handleOpen();
-      } else if (isMeta && e.key.toLowerCase() === "n") {
+      } else if (isMeta && (e.key.toLowerCase() === "n" || e.key.toLowerCase() === "t")) {
         e.preventDefault();
-        handleNew();
+        handleNewTab();
+      } else if (isMeta && e.key.toLowerCase() === "w") {
+        e.preventDefault();
+        handleCloseTab(activeTabId);
       } else if (isMeta && e.key === "/") {
         e.preventDefault();
         handleToggleSourceMode();
@@ -213,12 +360,13 @@ export default function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleSave, handleSaveAs, handleOpen, handleNew, handleToggleSourceMode]);
+  }, [handleSave, handleSaveAs, handleOpen, handleNewTab, handleCloseTab, activeTabId, handleToggleSourceMode]);
 
   const handleSourceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
-    setContent(newContent);
-    setIsDirty(true);
+    setTabs((prev) =>
+      prev.map((t) => (t.id === activeTab.id ? { ...t, content: newContent, isDirty: true } : t))
+    );
 
     const chars = newContent.length;
     const words = newContent.trim() ? newContent.trim().split(/\s+/).length : 0;
@@ -253,12 +401,12 @@ export default function App() {
       }
     >
       <Toolbar
-        fileName={currentFile ? currentFile.name : "Untitled.md"}
-        isDirty={isDirty}
-        isSourceMode={isSourceMode}
+        fileName={activeTab.name}
+        isDirty={activeTab.isDirty}
+        isSourceMode={activeTab.isSourceMode}
         isOutlineOpen={isOutlineOpen}
         currentTheme={settings.theme}
-        onNew={handleNew}
+        onNew={handleNewTab}
         onOpen={handleOpen}
         onSave={handleSave}
         onSaveAs={handleSaveAs}
@@ -268,12 +416,20 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
+      <TabBar
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onSelectTab={handleSelectTab}
+        onCloseTab={handleCloseTab}
+        onNewTab={handleNewTab}
+      />
+
       <div className="main-layout">
         {isOutlineOpen && (
           <Outline
             outline={outline}
             onSelect={(pos) => {
-              if (isSourceMode) {
+              if (activeTab.isSourceMode) {
                 const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
                 if (textarea) {
                   textarea.focus();
@@ -288,12 +444,12 @@ export default function App() {
         )}
 
         <main className={`editor-viewport width-${settings.contentWidth}`}>
-          {isSourceMode ? (
+          {activeTab.isSourceMode ? (
             <div className="source-mode-container">
               <textarea
                 className="source-textarea"
                 style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineHeight }}
-                value={content}
+                value={activeTab.content}
                 onChange={handleSourceChange}
                 placeholder="마크다운 원본 내용을 입력하세요..."
                 autoFocus
@@ -306,10 +462,11 @@ export default function App() {
             >
               <Editor
                 ref={editorRef}
-                initialContent={content}
+                initialContent={activeTab.content}
                 onChange={(md) => {
-                  setContent(md);
-                  setIsDirty(true);
+                  setTabs((prev) =>
+                    prev.map((t) => (t.id === activeTab.id ? { ...t, content: md, isDirty: true } : t))
+                  );
                 }}
                 onOutlineUpdate={setOutline}
                 onStatsUpdate={setStats}
@@ -322,9 +479,9 @@ export default function App() {
       <StatusBar
         words={stats.words}
         chars={stats.chars}
-        isDirty={isDirty}
-        isSourceMode={isSourceMode}
-        filePath={currentFile ? currentFile.path : null}
+        isDirty={activeTab.isDirty}
+        isSourceMode={activeTab.isSourceMode}
+        filePath={activeTab.path}
       />
 
       <SettingsModal

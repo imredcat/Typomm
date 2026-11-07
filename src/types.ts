@@ -6,6 +6,15 @@ export interface FileInfo {
   content: string;
 }
 
+export interface TabItem {
+  id: string;
+  path: string | null;
+  name: string;
+  content: string;
+  isDirty: boolean;
+  isSourceMode: boolean;
+}
+
 export interface OutlineItem {
   id: string;
   level: number;
