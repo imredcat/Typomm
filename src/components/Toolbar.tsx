@@ -21,6 +21,7 @@ interface ToolbarProps {
   isDirty: boolean;
   isSourceMode: boolean;
   isOutlineOpen: boolean;
+  isCheatsheetOpen: boolean;
   currentTheme: TyporaTheme;
   onNew: () => void;
   onOpen: () => void;
@@ -28,9 +29,9 @@ interface ToolbarProps {
   onSaveAs: () => void;
   onToggleSourceMode: () => void;
   onToggleOutline: () => void;
+  onToggleCheatsheet: () => void;
   onThemeSelect: (theme: TyporaTheme) => void;
   onOpenSettings: () => void;
-  onOpenCheatsheet: () => void;
   onExportHtmlFile: () => void;
   onCopyHtmlCode: () => void;
 }
@@ -40,6 +41,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   isDirty,
   isSourceMode,
   isOutlineOpen,
+  isCheatsheetOpen,
   currentTheme,
   onNew,
   onOpen,
@@ -47,9 +49,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSaveAs,
   onToggleSourceMode,
   onToggleOutline,
+  onToggleCheatsheet,
   onThemeSelect,
   onOpenSettings,
-  onOpenCheatsheet,
   onExportHtmlFile,
   onCopyHtmlCode,
 }) => {
@@ -116,8 +118,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       <div className="toolbar-actions right">
         {/* Markdown Cheatsheet Button */}
         <button
-          className="toolbar-btn text-btn"
-          onClick={onOpenCheatsheet}
+          className={`toolbar-btn text-btn ${isCheatsheetOpen ? "active" : ""}`}
+          onClick={onToggleCheatsheet}
           title="마크다운 문법 치트시트"
         >
           <BookOpen size={14} />

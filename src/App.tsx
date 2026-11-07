@@ -6,7 +6,7 @@ import { TabBar } from "./components/TabBar";
 import { Outline } from "./components/Outline";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsModal } from "./components/SettingsModal";
-import { CheatsheetModal } from "./components/CheatsheetModal";
+import { Cheatsheet } from "./components/Cheatsheet";
 import { generateStandaloneHtml } from "./utils/htmlExporter";
 import { FileInfo, OutlineItem, AppSettings, DEFAULT_SETTINGS, TyporaTheme, TabItem } from "./types";
 import "./App.css";
@@ -496,6 +496,7 @@ export default function App() {
         isDirty={activeTab.isDirty}
         isSourceMode={activeTab.isSourceMode}
         isOutlineOpen={isOutlineOpen}
+        isCheatsheetOpen={isCheatsheetOpen}
         currentTheme={settings.theme}
         onNew={handleNewTab}
         onOpen={handleOpen}
@@ -503,9 +504,9 @@ export default function App() {
         onSaveAs={handleSaveAs}
         onToggleSourceMode={handleToggleSourceMode}
         onToggleOutline={handleToggleOutline}
+        onToggleCheatsheet={() => setIsCheatsheetOpen((prev) => !prev)}
         onThemeSelect={handleThemeSelect}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onOpenCheatsheet={() => setIsCheatsheetOpen(true)}
         onExportHtmlFile={handleExportHtmlFile}
         onCopyHtmlCode={handleCopyHtmlCode}
       />
@@ -571,6 +572,13 @@ export default function App() {
             />
           </div>
         </main>
+
+        {isCheatsheetOpen && (
+          <Cheatsheet
+            onInsert={handleInsertSyntax}
+            onClose={() => setIsCheatsheetOpen(false)}
+          />
+        )}
       </div>
 
       <StatusBar
@@ -586,12 +594,6 @@ export default function App() {
         settings={settings}
         onUpdateSettings={updateSettings}
         onClose={() => setIsSettingsOpen(false)}
-      />
-
-      <CheatsheetModal
-        isOpen={isCheatsheetOpen}
-        onClose={() => setIsCheatsheetOpen(false)}
-        onInsert={handleInsertSyntax}
       />
     </div>
   );
