@@ -14,6 +14,7 @@
   --border-subtle: #eaecef;
   --accent-color: #4183c4;
   --accent-hover: #1f61a0;
+  --btn-accent-text: #ffffff;
   --code-bg: #f8f8f8;
   --table-border: #dfe2e5;
   --table-zebra: #f6f8fa;
@@ -33,6 +34,7 @@
   --border-subtle: #3a4046;
   --accent-color: #00e676;
   --accent-hover: #00c853;
+  --btn-accent-text: #0b140e;
   --code-bg: #282c34;
   --table-border: #4f565e;
   --table-zebra: #2f3438;
@@ -52,6 +54,7 @@
   --border-subtle: #eae6d9;
   --accent-color: #a33e38;
   --accent-hover: #832722;
+  --btn-accent-text: #ffffff;
   --code-bg: #f0ece0;
   --table-border: #dcd7c7;
   --table-zebra: #f4f1e8;
@@ -71,6 +74,7 @@
   --border-subtle: #dddddd;
   --accent-color: #000000;
   --accent-hover: #333333;
+  --btn-accent-text: #ffffff;
   --code-bg: #f0f0f0;
   --table-border: #000000;
   --table-zebra: #f7f7f7;
@@ -171,7 +175,7 @@ body, html {
 
 .toolbar-btn.active {
   background-color: var(--accent-color);
-  color: #ffffff;
+  color: var(--btn-accent-text, #ffffff);
 }
 
 .toolbar-btn.dirty {
@@ -824,7 +828,7 @@ input:checked + .slider:before {
 .confirm-btn {
   padding: 6px 16px;
   background-color: var(--accent-color);
-  color: #ffffff;
+  color: var(--btn-accent-text, #ffffff);
   border: none;
   border-radius: 6px;
   font-size: 13px;
@@ -1165,9 +1169,9 @@ input:checked + .slider:before {
 
 .cheatsheet-tab-chip.active {
   background-color: var(--accent-color);
-  color: #ffffff;
+  color: var(--btn-accent-text, #ffffff);
   border-color: var(--accent-color);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .cheatsheet-items-list {
@@ -1280,7 +1284,7 @@ input:checked + .slider:before {
 
 .sidebar-action-btn.insert:hover {
   background-color: var(--accent-color);
-  color: #ffffff;
+  color: var(--btn-accent-text, #ffffff);
   border-color: var(--accent-color);
 }
 
@@ -1288,4 +1292,262 @@ input:checked + .slider:before {
   background-color: #1a7f37;
   color: #ffffff;
   border-color: #1a7f37;
+}
+
+
+/* ========================================================
+   Night Theme Button & Contrast Polish
+   ======================================================== */
+.theme-night .toolbar-btn {
+  color: #e6edf3;
+}
+
+.theme-night .toolbar-btn:hover {
+  background-color: #3f464d;
+  border-color: #555d67;
+  color: #ffffff;
+}
+
+.theme-night .toolbar-btn.active {
+  background-color: var(--accent-color);
+  color: var(--btn-accent-text);
+  border-color: var(--accent-color);
+  font-weight: 700;
+}
+
+.theme-night .toolbar-btn.subtle {
+  color: #c0c7d0;
+}
+
+.theme-night .toolbar-btn.subtle:hover {
+  color: #ffffff;
+  background-color: #3f464d;
+}
+
+.theme-night .source-toggle-btn {
+  background-color: #383e44;
+  border-color: #4f565e;
+  color: #e6edf3;
+}
+
+.theme-night .source-toggle-btn:hover {
+  background-color: #454c54;
+  border-color: #626b75;
+  color: #ffffff;
+}
+
+.theme-night .source-toggle-btn.active {
+  background-color: var(--accent-color);
+  color: var(--btn-accent-text);
+  border-color: var(--accent-color);
+  font-weight: 700;
+}
+
+.theme-night .theme-selector-dropdown {
+  background-color: #383e44;
+  border-color: #4f565e;
+}
+
+.theme-night .theme-selector-dropdown:hover {
+  border-color: #626b75;
+}
+
+.theme-night .theme-select {
+  color: #e6edf3;
+  font-weight: 500;
+}
+
+.theme-night .dropdown-icon {
+  color: #c0c7d0;
+}
+
+/* Night Tab Bar */
+.theme-night .tab-item {
+  color: #b8c1cc;
+}
+
+.theme-night .tab-item:hover {
+  background-color: #3a4147;
+  color: #ffffff;
+}
+
+.theme-night .tab-item.active {
+  background-color: #363b40;
+  border-color: #525a63;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+.theme-night .tab-close-btn:hover {
+  background-color: #4d555e;
+  color: #ffffff;
+}
+
+.theme-night .new-tab-btn {
+  color: #b8c1cc;
+}
+
+.theme-night .new-tab-btn:hover {
+  background-color: #3a4147;
+  color: #ffffff;
+}
+
+/* Night Cheatsheet Sidebar */
+.theme-night .cheatsheet-search-input-wrap {
+  background-color: #383e44;
+  border-color: #4f565e;
+}
+
+.theme-night .cheatsheet-search-input-wrap input {
+  color: #f0f3f6;
+}
+
+.theme-night .cheatsheet-tab-chip {
+  background-color: #383e44;
+  border-color: #4f565e;
+  color: #c9d1d9;
+}
+
+.theme-night .cheatsheet-tab-chip:hover {
+  background-color: #444b53;
+  color: #ffffff;
+  border-color: #626b75;
+}
+
+.theme-night .cheatsheet-tab-chip.active {
+  background-color: var(--accent-color);
+  color: var(--btn-accent-text);
+  border-color: var(--accent-color);
+  font-weight: 700;
+}
+
+.theme-night .sidebar-cheatsheet-card {
+  background-color: #383e44;
+  border-color: #484f57;
+}
+
+.theme-night .sidebar-cheatsheet-card:hover {
+  border-color: #5c6570;
+}
+
+.theme-night .card-item-name {
+  color: #f0f3f6;
+}
+
+.theme-night .card-item-tag {
+  background-color: #2b3035;
+  color: #9da5b4;
+  border: 1px solid #3e444b;
+}
+
+.theme-night .sidebar-card-syntax {
+  background-color: #282c34;
+  border-color: #3e444b;
+}
+
+.theme-night .sidebar-card-syntax pre code {
+  color: #e6edf3;
+}
+
+.theme-night .sidebar-card-preview {
+  color: #b0b8c4;
+}
+
+.theme-night .sidebar-action-btn.insert {
+  background-color: #2c3136;
+  border-color: #4f565e;
+  color: #f0f3f6;
+  font-weight: 600;
+}
+
+.theme-night .sidebar-action-btn.insert:hover {
+  background-color: var(--accent-color);
+  color: var(--btn-accent-text);
+  border-color: var(--accent-color);
+  font-weight: 700;
+}
+
+.theme-night .sidebar-action-btn.copy {
+  background-color: #2c3136;
+  border-color: #4f565e;
+  color: #c9d1d9;
+}
+
+.theme-night .sidebar-action-btn.copy:hover {
+  background-color: #3f464e;
+  color: #ffffff;
+  border-color: #626b75;
+}
+
+.theme-night .sidebar-action-btn.copy.copied {
+  background-color: #00c853;
+  color: var(--btn-accent-text);
+  border-color: #00c853;
+  font-weight: 700;
+}
+
+/* Night HTML Export Menu */
+.theme-night .export-menu-popup {
+  background-color: #2f3438;
+  border-color: #4f565e;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.theme-night .export-menu-item:hover {
+  background-color: #3d444b;
+}
+
+.theme-night .export-item-title {
+  color: #ffffff;
+}
+
+.theme-night .export-item-desc {
+  color: #a0a8b4;
+}
+
+/* Night Preferences Modal */
+.theme-night .btn-group {
+  background-color: #282c30;
+}
+
+.theme-night .option-btn {
+  color: #c0c7d0;
+}
+
+.theme-night .option-btn:hover {
+  color: #ffffff;
+}
+
+.theme-night .option-btn.active {
+  background-color: #434a52;
+  color: #00e676;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.theme-night .confirm-btn {
+  background-color: var(--accent-color);
+  color: var(--btn-accent-text);
+  font-weight: 700;
+}
+
+.theme-night .confirm-btn:hover {
+  background-color: var(--accent-hover);
+  color: var(--btn-accent-text);
+}
+
+.theme-night .theme-card {
+  background-color: #383e44;
+  border-color: #484f57;
+}
+
+.theme-night .theme-card:hover {
+  border-color: var(--accent-color);
+  background-color: #40474e;
+}
+
+.theme-night .theme-card.selected {
+  border-color: var(--accent-color);
+  background-color: #3e454d;
 }
