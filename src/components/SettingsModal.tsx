@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { AppSettings, TyporaTheme, DEFAULT_CUSTOM_BG } from "../types";
 import { TYPING_SOUND_OPTIONS, playTypingSound, playCarriageReturnBell } from "../utils/soundEffects";
-import { X, Palette, Type, Layout, Sliders, Volume2, Image as ImageIcon, Bell } from "lucide-react";
+import { X, Sliders, Image as ImageIcon, Bell } from "lucide-react";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -12,12 +12,9 @@ interface SettingsModalProps {
 }
 
 const PRESET_BACKGROUNDS: { name: string; url: string }[] = [
+  { name: "설원", url: DEFAULT_CUSTOM_BG },
   {
-    name: "Omm 설원 (Winter Zen)",
-    url: DEFAULT_CUSTOM_BG,
-  },
-  {
-    name: "안개 낀 숲 (Misty Forest)",
+    name: "안개 숲",
     url:
       "data:image/svg+xml;utf8," +
       encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
@@ -34,7 +31,7 @@ const PRESET_BACKGROUNDS: { name: string; url: string }[] = [
     </svg>`),
   },
   {
-    name: "따뜻한 한지 (Warm Linen)",
+    name: "한지",
     url:
       "data:image/svg+xml;utf8," +
       encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
@@ -49,7 +46,7 @@ const PRESET_BACKGROUNDS: { name: string; url: string }[] = [
     </svg>`),
   },
   {
-    name: "고요한 밤하늘 (Midnight Aurora)",
+    name: "밤하늘",
     url:
       "data:image/svg+xml;utf8," +
       encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
@@ -89,12 +86,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const themes: { id: TyporaTheme; name: string; desc: string; previewBg: string; previewText: string }[] = [
-    { id: "github", name: "GitHub", desc: "화이트 & 클린 스타일", previewBg: "#ffffff", previewText: "#333333" },
-    { id: "night", name: "Night", desc: "다크 테마 & 민트 포인트", previewBg: "#363b40", previewText: "#f8f8f8" },
-    { id: "newsprint", name: "Newsprint", desc: "따뜻한 크림 페이퍼", previewBg: "#faf8f1", previewText: "#222222" },
-    { id: "gothic", name: "Gothic", desc: "모던 에디토리얼 스타일", previewBg: "#fbfbfb", previewText: "#111111" },
-    { id: "custom", name: "Custom (배경 이미지)", desc: "배경 이미지 & 반투명 글 영역", previewBg: "#dce5ee", previewText: "#1e293b" },
+  const themes: { id: TyporaTheme; name: string; previewBg: string; previewText: string }[] = [
+    { id: "github", name: "GitHub", previewBg: "#ffffff", previewText: "#333333" },
+    { id: "night", name: "Night", previewBg: "#363b40", previewText: "#f8f8f8" },
+    { id: "newsprint", name: "Newsprint", previewBg: "#faf8f1", previewText: "#222222" },
+    { id: "gothic", name: "Gothic", previewBg: "#fbfbfb", previewText: "#111111" },
+    { id: "custom", name: "커스텀", previewBg: "#dce5ee", previewText: "#1e293b" },
   ];
 
   const handlePickLocalImage = async () => {
@@ -122,11 +119,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="settings-modal compact-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
-            <Sliders size={18} />
-            <span>환경설정 (Preferences)</span>
+            <Sliders size={16} />
+            <span>설정</span>
           </div>
           <button className="icon-btn" onClick={onClose} title="닫기 (Esc)">
             <X size={16} />
@@ -134,21 +131,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         <div className="modal-body">
-          {/* Section: Themes */}
+          {/* 테마 */}
           <div className="settings-section">
-            <div className="section-label">
-              <Palette size={15} />
-              <span>테마 선택 (Theme)</span>
-            </div>
-            <div className="theme-grid">
+            <div className="theme-strip">
               {themes.map((t) => (
                 <button
                   key={t.id}
-                  className={`theme-card ${settings.theme === t.id ? "selected" : ""}`}
+                  className={`theme-chip ${settings.theme === t.id ? "selected" : ""}`}
                   onClick={() => onUpdateSettings({ theme: t.id })}
                 >
-                  <div
-                    className="theme-preview"
+                  <span
+                    className="theme-swatch"
                     style={{
                       backgroundColor: t.previewBg,
                       color: t.previewText,
@@ -160,30 +153,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       backgroundPosition: "center",
                     }}
                   >
-                    <span className="preview-heading">Typomm</span>
-                    <span className="preview-sub">Aa #1</span>
-                  </div>
-                  <div className="theme-info">
-                    <div className="theme-name">{t.name}</div>
-                    <div className="theme-desc">{t.desc}</div>
-                  </div>
+                    Aa
+                  </span>
+                  <span className="theme-chip-label">{t.name}</span>
                 </button>
               ))}
             </div>
 
-            {/* Custom Theme Controls */}
             {settings.theme === "custom" && (
               <div className="custom-theme-panel">
-                <div className="custom-panel-header">
-                  <ImageIcon size={14} />
-                  <span>커스텀 배경 이미지 & 글 작성 영역 투명 색상 설정</span>
-                </div>
-
                 <div className="settings-row">
-                  <span className="row-label">배경 이미지 선택</span>
-                  <div className="btn-group">
+                  <span className="row-label">배경 이미지</span>
+                  <div className="color-picker-row">
                     <button className="option-btn active" onClick={handlePickLocalImage}>
-                      파일에서 이미지 선택...
+                      <ImageIcon size={12} style={{ marginRight: 4, verticalAlign: "-1px" }} />
+                      파일 선택
                     </button>
                     <input
                       ref={fileInputRef}
@@ -192,12 +176,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       style={{ display: "none" }}
                       onChange={handleFileInputChange}
                     />
-                  </div>
-                </div>
-
-                <div className="settings-row">
-                  <span className="row-label">기본 감성 배경 프리셋</span>
-                  <div className="btn-group wrap-group">
                     {PRESET_BACKGROUNDS.map((preset) => (
                       <button
                         key={preset.name}
@@ -211,46 +189,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
 
                 <div className="settings-row">
-                  <span className="row-label">글 작성 영역 배경색</span>
+                  <span className="row-label">용지 색상</span>
                   <div className="color-picker-row">
                     <input
                       type="color"
                       value={settings.customEditorBgColor}
                       onChange={(e) => onUpdateSettings({ customEditorBgColor: e.target.value })}
                       className="color-input-native"
-                      title="글 작성 영역 배경색 직접 선택"
                     />
                     {[
-                      { color: "#ffffff", text: "#22262c", label: "화이트" },
-                      { color: "#faf8f1", text: "#222222", label: "크림" },
-                      { color: "#eef3f0", text: "#1e2923", label: "세이지" },
-                      { color: "#1e222a", text: "#f3f4f6", label: "다크 슬레이트" },
-                      { color: "#111318", text: "#f8fafc", label: "차콜 블랙" },
+                      { color: "#ffffff", text: "#22262c" },
+                      { color: "#faf8f1", text: "#222222" },
+                      { color: "#eef3f0", text: "#1e2923" },
+                      { color: "#1e222a", text: "#f3f4f6" },
+                      { color: "#111318", text: "#f8fafc" },
                     ].map((chip) => (
                       <button
                         key={chip.color}
-                        className={`color-chip-btn ${
+                        className={`dot-swatch-btn ${
                           settings.customEditorBgColor.toLowerCase() === chip.color ? "active" : ""
                         }`}
+                        style={{ backgroundColor: chip.color }}
                         onClick={() =>
                           onUpdateSettings({
                             customEditorBgColor: chip.color,
                             customTextColor: chip.text,
                           })
                         }
-                      >
-                        <span className="chip-swatch" style={{ backgroundColor: chip.color }} />
-                        <span>{chip.label}</span>
-                      </button>
+                      />
                     ))}
-                  </div>
-                </div>
-
-                <div className="settings-row">
-                  <span className="row-label">
-                    글 작성 영역 투명도 ({Math.round(settings.customEditorBgOpacity * 100)}%)
-                  </span>
-                  <div className="slider-control-row">
                     <input
                       type="range"
                       min={0}
@@ -260,13 +227,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       onChange={(e) =>
                         onUpdateSettings({ customEditorBgOpacity: Number(e.target.value) / 100 })
                       }
-                      className="opacity-range-slider"
+                      className="opacity-range-slider compact-slider"
+                      title={`투명도 ${Math.round(settings.customEditorBgOpacity * 100)}%`}
                     />
+                    <span className="opacity-val">
+                      {Math.round(settings.customEditorBgOpacity * 100)}%
+                    </span>
                   </div>
                 </div>
 
                 <div className="settings-row">
-                  <span className="row-label">본문 글자 색상</span>
+                  <span className="row-label">글자 색상</span>
                   <div className="color-picker-row">
                     <input
                       type="color"
@@ -278,13 +249,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       className={`option-btn ${settings.customTextColor === "#22262c" ? "active" : ""}`}
                       onClick={() => onUpdateSettings({ customTextColor: "#22262c" })}
                     >
-                      어두운 글자 (#22262c)
+                      어둡게
                     </button>
                     <button
                       className={`option-btn ${settings.customTextColor === "#f3f4f6" ? "active" : ""}`}
                       onClick={() => onUpdateSettings({ customTextColor: "#f3f4f6" })}
                     >
-                      밝은 글자 (#f3f4f6)
+                      밝게
                     </button>
                   </div>
                 </div>
@@ -292,57 +263,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             )}
           </div>
 
-          {/* Section: Typewriter Mode (Mode 1 & Mode 2 + Chime Bell) */}
+          {/* 타자기 & 차임벨 */}
           <div className="settings-section">
-            <div className="section-label">
-              <Layout size={15} />
-              <span>타자기 모드 & 레이아웃 (Typewriter & Layout)</span>
-            </div>
-
             <div className="settings-row">
-              <span className="row-label">타자기 모드 활성화 (F9)</span>
-              <label className="switch">
-                <input
-                  type="checkbox"
-                  checked={settings.typewriterMode}
-                  onChange={(e) => onUpdateSettings({ typewriterMode: e.target.checked })}
-                />
-                <span className="slider" />
-              </label>
-            </div>
-
-            <div className="settings-row">
-              <span className="row-label">타자기 모드 동작 방식</span>
+              <span className="row-label">타자기 모드</span>
               <div className="btn-group">
                 <button
-                  className={`option-btn ${settings.typewriterStyle === "horizontal" ? "active" : ""}`}
+                  className={`option-btn ${!settings.typewriterMode ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ typewriterMode: false })}
+                >
+                  꺼짐
+                </button>
+                <button
+                  className={`option-btn ${
+                    settings.typewriterMode && settings.typewriterStyle === "horizontal" ? "active" : ""
+                  }`}
                   onClick={() =>
                     onUpdateSettings({ typewriterMode: true, typewriterStyle: "horizontal" })
                   }
                 >
-                  1번: 커서 정중앙 고정 (문장 상하좌우 이동)
+                  1. 중앙 고정
                 </button>
                 <button
-                  className={`option-btn ${settings.typewriterStyle === "vertical" ? "active" : ""}`}
+                  className={`option-btn ${
+                    settings.typewriterMode && settings.typewriterStyle === "vertical" ? "active" : ""
+                  }`}
                   onClick={() =>
                     onUpdateSettings({ typewriterMode: true, typewriterStyle: "vertical" })
                   }
                 >
-                  2번: 상단 60% 줄 고정 (문장 고정 · 커서만 이동)
+                  2. 60% 줄 고정
                 </button>
               </div>
             </div>
 
             <div className="settings-row">
-              <span className="row-label">행 마지막 도달 시 '띵~' 차임벨 소리</span>
+              <span className="row-label">행 끝 차임벨</span>
               <div className="bell-control-group">
                 <button
                   className="option-btn preview-bell-btn"
                   onClick={() => playCarriageReturnBell()}
-                  title="차임벨 소리 미리듣기"
                 >
-                  <Bell size={13} />
-                  <span>띵~ 미리듣기</span>
+                  <Bell size={12} />
+                  <span>띵~</span>
                 </button>
                 <label className="switch">
                   <input
@@ -354,15 +317,91 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </label>
               </div>
             </div>
+          </div>
+
+          {/* 타이핑 사운드 */}
+          <div className="settings-section">
+            <div className="compact-label">타이핑 소리</div>
+            <div className="sound-chip-grid">
+              {TYPING_SOUND_OPTIONS.map((opt) => (
+                <button
+                  key={opt.id}
+                  className={`sound-chip ${settings.typingSound === opt.id ? "selected" : ""}`}
+                  onClick={() => {
+                    onUpdateSettings({ typingSound: opt.id });
+                    if (opt.id !== "off") {
+                      playTypingSound(opt.id);
+                    }
+                  }}
+                >
+                  {opt.name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 글꼴 & 레이아웃 */}
+          <div className="settings-section">
+            <div className="settings-row">
+              <span className="row-label">글꼴</span>
+              <div className="btn-group">
+                <button
+                  className={`option-btn ${settings.fontFamily === "sans" ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ fontFamily: "sans" })}
+                >
+                  고딕
+                </button>
+                <button
+                  className={`option-btn ${settings.fontFamily === "serif" ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ fontFamily: "serif" })}
+                >
+                  명조
+                </button>
+                <button
+                  className={`option-btn ${settings.fontFamily === "mono" ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ fontFamily: "mono" })}
+                >
+                  고정폭
+                </button>
+              </div>
+            </div>
 
             <div className="settings-row">
-              <span className="row-label">문서 최대 너비</span>
+              <span className="row-label">크기 · 간격</span>
+              <div className="color-picker-row">
+                <div className="btn-group">
+                  {[14, 16, 18, 20].map((sz) => (
+                    <button
+                      key={sz}
+                      className={`option-btn ${settings.fontSize === sz ? "active" : ""}`}
+                      onClick={() => onUpdateSettings({ fontSize: sz })}
+                    >
+                      {sz}
+                    </button>
+                  ))}
+                </div>
+                <div className="btn-group">
+                  {[1.5, 1.7, 1.9].map((lh) => (
+                    <button
+                      key={lh}
+                      className={`option-btn ${settings.lineHeight === lh ? "active" : ""}`}
+                      onClick={() => onUpdateSettings({ lineHeight: lh })}
+                    >
+                      {lh}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="row-label">문서 너비</span>
               <div className="btn-group">
                 {[
-                  { id: "narrow", label: "720px (집중)" },
-                  { id: "default", label: "860px (표준)" },
-                  { id: "wide", label: "1080px (넓게)" },
-                  { id: "full", label: "100% (전체)" },
+                  { id: "narrow", label: "좁게" },
+                  { id: "default", label: "보통" },
+                  { id: "wide", label: "넓게" },
+                  { id: "full", label: "전체" },
                 ].map((w) => (
                   <button
                     key={w.id}
@@ -377,103 +416,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Section: Typing Sounds (Mute + 10 Sound Profiles) */}
-          <div className="settings-section">
-            <div className="section-label">
-              <Volume2 size={15} />
-              <span>타이핑 사운드 (무음 + 10가지 타자 소리 · 클릭 시 미리듣기)</span>
-            </div>
-            <div className="sound-grid">
-              {TYPING_SOUND_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  className={`sound-card ${settings.typingSound === opt.id ? "selected" : ""}`}
-                  onClick={() => {
-                    onUpdateSettings({ typingSound: opt.id });
-                    if (opt.id !== "off") {
-                      playTypingSound(opt.id);
-                    }
-                  }}
-                >
-                  <div className="sound-card-title">{opt.name}</div>
-                  <div className="sound-card-desc">{opt.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Section: Typography */}
-          <div className="settings-section">
-            <div className="section-label">
-              <Type size={15} />
-              <span>타이포그래피 (Typography)</span>
-            </div>
-
-            <div className="settings-row">
-              <span className="row-label">글꼴 계열</span>
-              <div className="btn-group">
-                <button
-                  className={`option-btn ${settings.fontFamily === "sans" ? "active" : ""}`}
-                  onClick={() => onUpdateSettings({ fontFamily: "sans" })}
-                >
-                  Sans-Serif (기본)
-                </button>
-                <button
-                  className={`option-btn ${settings.fontFamily === "serif" ? "active" : ""}`}
-                  onClick={() => onUpdateSettings({ fontFamily: "serif" })}
-                >
-                  Serif (명조/바탕)
-                </button>
-                <button
-                  className={`option-btn ${settings.fontFamily === "mono" ? "active" : ""}`}
-                  onClick={() => onUpdateSettings({ fontFamily: "mono" })}
-                >
-                  Monospace (고정폭)
-                </button>
-              </div>
-            </div>
-
-            <div className="settings-row">
-              <span className="row-label">글자 크기</span>
-              <div className="btn-group">
-                {[14, 16, 18, 20].map((sz) => (
-                  <button
-                    key={sz}
-                    className={`option-btn ${settings.fontSize === sz ? "active" : ""}`}
-                    onClick={() => onUpdateSettings({ fontSize: sz })}
-                  >
-                    {sz}px
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="settings-row">
-              <span className="row-label">줄 간격</span>
-              <div className="btn-group">
-                {[
-                  { val: 1.5, label: "1.5 (좁게)" },
-                  { val: 1.7, label: "1.7 (표준)" },
-                  { val: 1.9, label: "1.9 (넓게)" },
-                ].map((lh) => (
-                  <button
-                    key={lh.val}
-                    className={`option-btn ${settings.lineHeight === lh.val ? "active" : ""}`}
-                    onClick={() => onUpdateSettings({ lineHeight: lh.val })}
-                  >
-                    {lh.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="modal-footer">
-          <button className="confirm-btn" onClick={onClose}>
-            적용 및 닫기
-          </button>
         </div>
       </div>
     </div>

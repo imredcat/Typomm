@@ -181,7 +181,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({
 
           {isSoundMenuOpen && (
             <div className="export-menu-popup sound-menu-popup">
-              <div className="popup-section-title">타이핑 사운드 (Typing Sound)</div>
               <div className="sound-menu-list">
                 {TYPING_SOUND_OPTIONS.map((opt) => (
                   <button
@@ -194,10 +193,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                       }
                     }}
                   >
-                    <div className="export-item-text">
-                      <span className="export-item-title">{opt.name}</span>
-                      <span className="export-item-desc">{opt.desc}</span>
-                    </div>
+                    <span className="export-item-title">{opt.name}</span>
                   </button>
                 ))}
               </div>

@@ -200,6 +200,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
     const lastDocSizeRef = useRef<number>(0);
     const lastCaretYRef = useRef<number>(-1);
     const lastBellLineKeyRef = useRef<number>(-1);
+    const lastBlockPosRef = useRef<number>(-1);
+    const lastDistToRightRef = useRef<number>(-1);
+    const lastKeyWasEnterRef = useRef<boolean>(false);
 
     useEffect(() => {
       typewriterStyleRef.current = typewriterStyle;
@@ -214,7 +217,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
     }, [typingSound]);
 
     const scrollTypewriterCursor = useCallback((currentEditor: ReturnType<typeof useEditor>, forceGlide = false) => {
-      if (!typewriterRef.current || !currentEditor || !currentEditor.view) return;
+      if ((!typewriterRef.current && !typewriterBellRef.current) || !currentEditor || !currentEditor.view) return;
 
       try {
         const { to } = currentEditor.state.selection;
@@ -226,6 +229,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
 
         const clampedTo = Math.max(0, Math.min(to, docSize));
         const $to = doc.resolve(clampedTo);
+        const currentBlockPos = $to.depth > 0 ? $to.before() : 0;
         const hasCharBefore = $to.parent.isTextblock && $to.parentOffset > 0;
         const charBefore = hasCharBefore ? doc.textBetween(clampedTo - 1, clampedTo) : "";
         const isComposingKorean = isComposing && KOREAN_CHAR_REGEX.test(charBefore);
@@ -233,9 +237,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         // In Mode 1 ("horizontal"), wait until the current Korean syllable (초성 -> 중성 -> 종성)
         // finishes and the next character/symbol is entered before advancing completedPos.
         const completedPos =
-          style === "horizontal" && isComposingKorean ? clampedTo - 1 : clampedTo;
+          typewriterRef.current && style === "horizontal" && isComposingKorean
+            ? clampedTo - 1
+            : clampedTo;
 
         if (
+          typewriterRef.current &&
           style === "horizontal" &&
           !forceGlide &&
           isComposingKorean &&
@@ -252,35 +259,62 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         const paper = currentEditor.view.dom.closest(".editor-wrapper") as HTMLElement | null;
         if (!viewport || !paper) return;
 
-        if (viewport.scrollLeft !== 0) viewport.scrollLeft = 0;
-        if (viewport.scrollTop !== 0) viewport.scrollTop = 0;
+        if (typewriterRef.current) {
+          if (viewport.scrollLeft !== 0) viewport.scrollLeft = 0;
+          if (viewport.scrollTop !== 0) viewport.scrollTop = 0;
+        }
 
         const viewportRect = viewport.getBoundingClientRect();
         const paperRect = paper.getBoundingClientRect();
+        const contentRect = currentEditor.view.dom.getBoundingClientRect();
 
         // Caret position relative to the paper's top-left corner
         const caretXInPaper = coords.left - paperRect.left;
         const caretYInPaper = (coords.top + coords.bottom) / 2 - paperRect.top;
+        const distToRightEdge = contentRect.right - coords.left;
 
-        // Check End-of-Line Chime Bell ("띵~") when typing forward
-        if (!forceGlide && typewriterBellRef.current && docSize >= prevDocSize && prevDocSize > 0) {
-          const currentLineKey = Math.round(caretYInPaper / 12);
-          const prevLineKey = lastCaretYRef.current >= 0 ? Math.round(lastCaretYRef.current / 12) : currentLineKey;
-          // Right text margin inside paper (padding 32px + 56px = 88px; bell zone within 26px of right margin)
-          const rightMarginThreshold = paperRect.width - 114;
-          const hitRightMargin = caretXInPaper >= rightMarginThreshold;
-          const wrappedToNextLine =
-            lastCaretYRef.current >= 0 && caretYInPaper - lastCaretYRef.current > 12;
+        // End-of-Line Chime Bell ("맑은 띵~ 차임벨"):
+        // Rings ONLY when the cursor reaches the end of a line (never on Enter key).
+        const isSameBlock = lastBlockPosRef.current === currentBlockPos;
+        const isTypingForwardOnLine =
+          !forceGlide &&
+          !lastKeyWasEnterRef.current &&
+          isSameBlock &&
+          docSize > prevDocSize &&
+          prevDocSize > 0;
 
-          if (hitRightMargin && lastBellLineKeyRef.current !== currentLineKey) {
+        if (typewriterBellRef.current && isTypingForwardOnLine) {
+          const currentLineKey = Math.round(caretYInPaper / 10);
+          const prevLineKey =
+            lastCaretYRef.current >= 0 ? Math.round(lastCaretYRef.current / 10) : currentLineKey;
+
+          // 1) Cursor reached within ~26px of the right edge of the line
+          const reachedLineEnd = distToRightEdge >= -4 && distToRightEdge <= 26;
+          // 2) Cursor soft-wrapped to the next visual line inside the same paragraph after being near the right end
+          const softWrappedAtLineEnd =
+            lastCaretYRef.current >= 0 &&
+            caretYInPaper - lastCaretYRef.current > 10 &&
+            lastDistToRightRef.current >= -4 &&
+            lastDistToRightRef.current <= 96;
+
+          if (reachedLineEnd && lastBellLineKeyRef.current !== currentLineKey) {
             lastBellLineKeyRef.current = currentLineKey;
             playCarriageReturnBell();
-          } else if (wrappedToNextLine && lastBellLineKeyRef.current !== prevLineKey) {
-            lastBellLineKeyRef.current = currentLineKey;
+          } else if (softWrappedAtLineEnd && lastBellLineKeyRef.current !== prevLineKey) {
+            lastBellLineKeyRef.current = prevLineKey;
             playCarriageReturnBell();
           }
         }
+
         lastCaretYRef.current = caretYInPaper;
+        lastBlockPosRef.current = currentBlockPos;
+        lastDistToRightRef.current = distToRightEdge;
+
+        if (!typewriterRef.current) {
+          lastCompletedPosRef.current = completedPos;
+          lastDocSizeRef.current = docSize;
+          return;
+        }
 
         const lastTx = lastTransformRef.current.tx;
         const lastTy = lastTransformRef.current.ty;
@@ -351,7 +385,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
 
     const scheduleTypewriterScroll = useCallback(
       (currentEditor: ReturnType<typeof useEditor>, forceGlide = false) => {
-        if (!typewriterRef.current || !currentEditor) return;
+        if ((!typewriterRef.current && !typewriterBellRef.current) || !currentEditor) return;
         if (rafIdRef.current !== null) {
           cancelAnimationFrame(rafIdRef.current);
         }
@@ -462,6 +496,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         }
       };
       const onKeyDown = (e: KeyboardEvent) => {
+        lastKeyWasEnterRef.current = e.key === "Enter";
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         if (NON_TYPING_KEYS.has(e.key)) return;
         if (typingSoundRef.current !== "off") {

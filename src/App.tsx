@@ -495,10 +495,19 @@ export default function App() {
       const caretXInContainer = paddingLeft + textWidth;
       const caretYInContainer = paddingTop + lineIndex * lineHeight + lineHeight / 2;
 
-      if (!forceGlide && settings.typewriterBell && fullText.length >= prevLen && prevLen > 0) {
-        const rightLimit = containerRect.width - paddingLeft * 2 - 24;
-        if (textWidth >= rightLimit && sourceLastBellLineRef.current !== lineIndex) {
-          sourceLastBellLineRef.current = lineIndex;
+      if (
+        !forceGlide &&
+        settings.typewriterBell &&
+        charBefore !== "\n" &&
+        fullText.length > prevLen &&
+        prevLen > 0
+      ) {
+        const usableWidth = Math.max(200, containerRect.width - paddingLeft * 2);
+        const visualWrapRow = Math.floor(textWidth / usableWidth);
+        const xInRow = textWidth % usableWidth;
+        const visualRowKey = lineIndex * 1000 + visualWrapRow;
+        if (usableWidth - xInRow <= 28 && sourceLastBellLineRef.current !== visualRowKey) {
+          sourceLastBellLineRef.current = visualRowKey;
           playCarriageReturnBell();
         }
       }
