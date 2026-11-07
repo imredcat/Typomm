@@ -1,4 +1,5 @@
 import React from "react";
+import { TypewriterStyle } from "../types";
 
 interface StatusBarProps {
   words: number;
@@ -6,6 +7,7 @@ interface StatusBarProps {
   isDirty: boolean;
   isSourceMode: boolean;
   typewriterMode: boolean;
+  typewriterStyle?: TypewriterStyle;
   filePath: string | null;
   onToggleTypewriter?: () => void;
 }
@@ -16,6 +18,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   isDirty,
   isSourceMode,
   typewriterMode,
+  typewriterStyle = "horizontal",
   filePath,
   onToggleTypewriter,
 }) => {
@@ -33,9 +36,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
             <button
               className="status-typewriter-pill"
               onClick={onToggleTypewriter}
-              title="타자기 모드 켜짐 (클릭하여 끄기 / F9)"
+              title="클릭하여 타자기 모드 전환 (모드 1 → 모드 2 → 끄기 / F9)"
             >
-              타자기 모드 ON
+              {typewriterStyle === "horizontal"
+                ? "타자기 1 (커서 정중앙)"
+                : "타자기 2 (60% 줄 고정)"}
             </button>
           </>
         )}

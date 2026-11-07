@@ -10,7 +10,8 @@ import { TableHeader } from "@tiptap/extension-table-header";
 import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
 import { Placeholder } from "@tiptap/extension-placeholder";
-import { OutlineItem } from "../types";
+import { OutlineItem, TypewriterStyle, TypingSoundProfile } from "../types";
+import { playTypingSound, playCarriageReturnBell } from "../utils/soundEffects";
 
 export interface EditorHandle {
   getMarkdown: () => string;
@@ -25,12 +26,46 @@ export interface EditorHandle {
 interface EditorProps {
   initialContent: string;
   typewriterMode?: boolean;
+  typewriterStyle?: TypewriterStyle;
+  typewriterBell?: boolean;
+  typingSound?: TypingSoundProfile;
   onChange: (markdown: string) => void;
   onOutlineUpdate: (outline: OutlineItem[]) => void;
   onStatsUpdate: (stats: { words: number; chars: number }) => void;
 }
 
 const KOREAN_CHAR_REGEX = /[ㄱ-ㅎㅏ-ㅣ가-힣\u1100-\u11FF\u3130-\u318F]/;
+
+const NON_TYPING_KEYS = new Set([
+  "Shift",
+  "Control",
+  "Alt",
+  "Meta",
+  "CapsLock",
+  "Tab",
+  "Escape",
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Home",
+  "End",
+  "PageUp",
+  "PageDown",
+  "ContextMenu",
+  "F1",
+  "F2",
+  "F3",
+  "F4",
+  "F5",
+  "F6",
+  "F7",
+  "F8",
+  "F9",
+  "F10",
+  "F11",
+  "F12",
+]);
 
 /**
  * Measures the exact pixel coordinates of `targetPos` using a non-empty 1-character DOM Range
@@ -136,8 +171,24 @@ function getExactCaretCoords(
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(
-  ({ initialContent, typewriterMode = false, onChange, onOutlineUpdate, onStatsUpdate }, ref) => {
+  (
+    {
+      initialContent,
+      typewriterMode = false,
+      typewriterStyle = "horizontal",
+      typewriterBell = true,
+      typingSound = "off",
+      onChange,
+      onOutlineUpdate,
+      onStatsUpdate,
+    },
+    ref
+  ) => {
     const typewriterRef = useRef(typewriterMode);
+    const typewriterStyleRef = useRef<TypewriterStyle>(typewriterStyle);
+    const typewriterBellRef = useRef<boolean>(typewriterBell);
+    const typingSoundRef = useRef<TypingSoundProfile>(typingSound);
+
     const rafIdRef = useRef<number | null>(null);
     const changeTimerRef = useRef<number | null>(null);
     const statsTimerRef = useRef<number | null>(null);
@@ -147,6 +198,20 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
     const isComposingRef = useRef<boolean>(false);
     const lastCompletedPosRef = useRef<number>(-1);
     const lastDocSizeRef = useRef<number>(0);
+    const lastCaretYRef = useRef<number>(-1);
+    const lastBellLineKeyRef = useRef<number>(-1);
+
+    useEffect(() => {
+      typewriterStyleRef.current = typewriterStyle;
+    }, [typewriterStyle]);
+
+    useEffect(() => {
+      typewriterBellRef.current = typewriterBell;
+    }, [typewriterBell]);
+
+    useEffect(() => {
+      typingSoundRef.current = typingSound;
+    }, [typingSound]);
 
     const scrollTypewriterCursor = useCallback((currentEditor: ReturnType<typeof useEditor>, forceGlide = false) => {
       if (!typewriterRef.current || !currentEditor || !currentEditor.view) return;
@@ -155,6 +220,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         const { to } = currentEditor.state.selection;
         const doc = currentEditor.state.doc;
         const docSize = doc.content.size;
+        const prevDocSize = lastDocSizeRef.current;
+        const style = typewriterStyleRef.current;
         const isComposing = currentEditor.view.composing || isComposingRef.current;
 
         const clampedTo = Math.max(0, Math.min(to, docSize));
@@ -163,11 +230,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         const charBefore = hasCharBefore ? doc.textBetween(clampedTo - 1, clampedTo) : "";
         const isComposingKorean = isComposing && KOREAN_CHAR_REGEX.test(charBefore);
 
-        // Wait until the current Korean syllable (초성 -> 중성 -> 종성) is finished
-        // and the next character/symbol is entered before advancing completedPos.
-        const completedPos = isComposingKorean ? clampedTo - 1 : clampedTo;
+        // In Mode 1 ("horizontal"), wait until the current Korean syllable (초성 -> 중성 -> 종성)
+        // finishes and the next character/symbol is entered before advancing completedPos.
+        const completedPos =
+          style === "horizontal" && isComposingKorean ? clampedTo - 1 : clampedTo;
 
-        if (!forceGlide && isComposingKorean && completedPos === lastCompletedPosRef.current) {
+        if (
+          style === "horizontal" &&
+          !forceGlide &&
+          isComposingKorean &&
+          completedPos === lastCompletedPosRef.current
+        ) {
           lastDocSizeRef.current = docSize;
           return;
         }
@@ -185,32 +258,62 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         const viewportRect = viewport.getBoundingClientRect();
         const paperRect = paper.getBoundingClientRect();
 
-        // Exact 50% Horizontal and Vertical Center of Viewport
-        const targetCenterX = viewportRect.width / 2;
-        const targetCenterY = viewportRect.height / 2;
-
         // Caret position relative to the paper's top-left corner
         const caretXInPaper = coords.left - paperRect.left;
-        const caretYInPaper = ((coords.top + coords.bottom) / 2) - paperRect.top;
+        const caretYInPaper = (coords.top + coords.bottom) / 2 - paperRect.top;
 
-        // Target paper translation to position caret at viewport exact center
-        let targetTx = Math.round(targetCenterX - caretXInPaper);
-        const targetTy = Math.round(targetCenterY - caretYInPaper);
+        // Check End-of-Line Chime Bell ("띵~") when typing forward
+        if (!forceGlide && typewriterBellRef.current && docSize >= prevDocSize && prevDocSize > 0) {
+          const currentLineKey = Math.round(caretYInPaper / 12);
+          const prevLineKey = lastCaretYRef.current >= 0 ? Math.round(lastCaretYRef.current / 12) : currentLineKey;
+          // Right text margin inside paper (padding 32px + 56px = 88px; bell zone within 26px of right margin)
+          const rightMarginThreshold = paperRect.width - 114;
+          const hitRightMargin = caretXInPaper >= rightMarginThreshold;
+          const wrappedToNextLine =
+            lastCaretYRef.current >= 0 && caretYInPaper - lastCaretYRef.current > 12;
+
+          if (hitRightMargin && lastBellLineKeyRef.current !== currentLineKey) {
+            lastBellLineKeyRef.current = currentLineKey;
+            playCarriageReturnBell();
+          } else if (wrappedToNextLine && lastBellLineKeyRef.current !== prevLineKey) {
+            lastBellLineKeyRef.current = currentLineKey;
+            playCarriageReturnBell();
+          }
+        }
+        lastCaretYRef.current = caretYInPaper;
 
         const lastTx = lastTransformRef.current.tx;
         const lastTy = lastTransformRef.current.ty;
 
-        // One-way typewriter ratchet: when typing forward on the same line,
-        // prevent the paper from moving in the reverse direction (right).
-        const isForwardTyping =
-          !forceGlide &&
-          docSize >= lastDocSizeRef.current &&
-          lastCompletedPosRef.current >= 0 &&
-          completedPos >= lastCompletedPosRef.current;
-        const isSameLine = Math.abs(targetTy - lastTy) < 10;
+        let targetTx: number;
+        let targetTy: number;
 
-        if (isForwardTyping && isSameLine && targetTx > lastTx && (lastTx !== 0 || lastTy !== 0)) {
-          targetTx = lastTx;
+        if (style === "vertical") {
+          // Mode 2: Paper stays horizontally centered (sentences don't move left/right; only cursor moves),
+          // while the active line is fixed at 60% from the top of the viewport.
+          targetTx = Math.round(Math.max(0, (viewportRect.width - paperRect.width) / 2));
+          const targetLineY = viewportRect.height * 0.6;
+          targetTy = Math.round(targetLineY - caretYInPaper);
+        } else {
+          // Mode 1: Classic 2D Typewriter Mode (Caret locked at exact 50% X & 50% Y center)
+          const targetCenterX = viewportRect.width / 2;
+          const targetCenterY = viewportRect.height / 2;
+
+          targetTx = Math.round(targetCenterX - caretXInPaper);
+          targetTy = Math.round(targetCenterY - caretYInPaper);
+
+          // One-way typewriter ratchet: when typing forward on the same line,
+          // prevent the paper from moving in the reverse direction (right).
+          const isForwardTyping =
+            !forceGlide &&
+            docSize >= prevDocSize &&
+            lastCompletedPosRef.current >= 0 &&
+            completedPos >= lastCompletedPosRef.current;
+          const isSameLine = Math.abs(targetTy - lastTy) < 10;
+
+          if (isForwardTyping && isSameLine && targetTx > lastTx && (lastTx !== 0 || lastTy !== 0)) {
+            targetTx = lastTx;
+          }
         }
 
         lastCompletedPosRef.current = completedPos;
@@ -219,13 +322,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         const deltaX = Math.abs(targetTx - lastTx);
         const deltaY = Math.abs(targetTy - lastTy);
 
-        // Detect line wrap (soft wrap), Enter key, or distant selection jump
-        // Standard single char typing has deltaX of 6-25px.
-        // Line wrap causes caret to wrap to line start, causing a large jump (deltaX > 60px).
-        const isLineWrapOrJump = forceGlide || deltaX > 60 || deltaY > 40;
+        const isLineWrapOrJump =
+          forceGlide || deltaX > 60 || deltaY > 40 || (style === "vertical" && deltaY > 10);
 
         if (isLineWrapOrJump) {
-          // Smooth carriage return glide animation (absorbs line wrap jitter smoothly)
+          // Smooth carriage return / vertical line advance glide animation
           paper.style.transition = "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)";
           isGlidingRef.current = true;
           if (glideTimerRef.current !== null) {
@@ -238,7 +339,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
             isGlidingRef.current = false;
           }, 230);
         } else if (!isGlidingRef.current) {
-          // Zero latency instant tracking (< 1ms) locks caret rock-solid at center
           paper.style.transition = "none";
         }
 
@@ -344,7 +444,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
       },
     });
 
-    // Track Korean/IME composition lifecycle accurately
+    // Track Korean/IME composition lifecycle and Typing Sounds accurately
     useEffect(() => {
       if (!editor || !editor.view || !editor.view.dom) return;
       const dom = editor.view.dom;
@@ -361,14 +461,23 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
           scheduleTypewriterScroll(editor);
         }
       };
+      const onKeyDown = (e: KeyboardEvent) => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (NON_TYPING_KEYS.has(e.key)) return;
+        if (typingSoundRef.current !== "off") {
+          playTypingSound(typingSoundRef.current, e.key);
+        }
+      };
 
       dom.addEventListener("compositionstart", onCompStart, { capture: true });
       dom.addEventListener("compositionupdate", onCompUpdate, { capture: true });
       dom.addEventListener("compositionend", onCompEnd);
+      dom.addEventListener("keydown", onKeyDown, { capture: true });
       return () => {
         dom.removeEventListener("compositionstart", onCompStart, { capture: true });
         dom.removeEventListener("compositionupdate", onCompUpdate, { capture: true });
         dom.removeEventListener("compositionend", onCompEnd);
+        dom.removeEventListener("keydown", onKeyDown, { capture: true });
       };
     }, [editor, scheduleTypewriterScroll]);
 
@@ -377,7 +486,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
       if (typewriterMode && editor) {
         scheduleTypewriterScroll(editor, true);
       } else if (!typewriterMode && editor) {
-        // Reset transforms cleanly when leaving typewriter mode
         const paper = editor.view.dom.closest(".editor-wrapper") as HTMLElement | null;
         if (paper) {
           paper.style.transform = "";
@@ -385,13 +493,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         }
         lastTransformRef.current = { tx: 0, ty: 0 };
         lastCompletedPosRef.current = -1;
+        lastCaretYRef.current = -1;
+        lastBellLineKeyRef.current = -1;
         isGlidingRef.current = false;
         if (glideTimerRef.current !== null) {
           clearTimeout(glideTimerRef.current);
           glideTimerRef.current = null;
         }
       }
-    }, [typewriterMode, editor, scheduleTypewriterScroll]);
+    }, [typewriterMode, typewriterStyle, editor, scheduleTypewriterScroll]);
 
     // Enable smooth mouse wheel browsing while in typewriter mode
     useEffect(() => {
@@ -455,7 +565,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
 
     useEffect(() => {
       if (editor && initialContent) {
-        // Initial outline & stats
         const text = editor.getText();
         const chars = text.length;
         const words = text.trim() ? text.trim().split(/\s+/).length : 0;

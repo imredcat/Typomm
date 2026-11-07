@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Editor, EditorHandle } from "./components/Editor";
 import { Toolbar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
@@ -8,36 +9,42 @@ import { StatusBar } from "./components/StatusBar";
 import { SettingsModal } from "./components/SettingsModal";
 import { Cheatsheet } from "./components/Cheatsheet";
 import { generateStandaloneHtml } from "./utils/htmlExporter";
-import { FileInfo, OutlineItem, AppSettings, DEFAULT_SETTINGS, TyporaTheme, TabItem } from "./types";
+import { playTypingSound, playCarriageReturnBell } from "./utils/soundEffects";
+import { FileInfo, OutlineItem, AppSettings, DEFAULT_SETTINGS, TabItem } from "./types";
 import "./App.css";
 
 const SETTINGS_STORAGE_KEY = "typomm_settings";
 
+function hexToRgba(hex: string, alpha: number): string {
+  const cleaned = hex.replace("#", "").trim();
+  const full =
+    cleaned.length === 3
+      ? cleaned
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : cleaned;
+  const num = parseInt(full, 16);
+  if (Number.isNaN(num)) {
+    return `rgba(255, 255, 255, ${alpha})`;
+  }
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 const INITIAL_MARKDOWN = `# Typomm ✍️
 
-Typora의 고유한 **실시간 인라인 위지윅(Live Preview)**과 **다중 탭(Multi-tabs)** 기능을 경험해 보세요.
+Typora의 **실시간 인라인 위지윅(Live Preview)**과 OmmWriter의 **몰입형 감성**을 결합한 마크다운 에디터입니다.
 
-## ✨ 새롭게 추가된 탭 기능
-- **다중 문서 탭 지원**: 상단 \`+\` 버튼이나 \`Cmd + T\` / \`Cmd + N\` 단축키로 새 문서 탭을 추가할 수 있습니다.
-- **탭별 독립 상태 유지**: 각 탭마다 작성 내용, 저장 경로, 수정 여부(\`•\`)가 개별적으로 관리됩니다.
-- **간편한 탭 닫기 (\`Cmd + W\`)**: 탭의 \`X\` 버튼을 누르거나 단축키를 눌러 현재 탭을 닫을 수 있습니다.
-- **기존 문서 열기 (\`Cmd + O\`)**: 파일을 열면 새 탭으로 열리며, 이미 열려 있는 파일은 해당 탭으로 즉시 전환됩니다.
-
----
-
-### 1. 할 일 목록 (Task List)
-- [x] 다중 탭 시스템(Tab Bar) 구축 완료
-- [x] 탭 닫기/전환/새 탭 단축키(\`Cmd + T\`, \`Cmd + W\`, \`Cmd + N\`) 연동
-- [x] 빈티지 타자기 키캡 아이콘 적용 완료
-
-### 2. 코드 블록
-\`\`\`rust
-fn main() {
-    println!("Typomm with Multi-tab support!");
-}
-\`\`\`
-
-상단 탭 바의 **\`+\` 버튼**을 누르거나 새 파일을 열어 여러 문서를 동시에 편집해 보세요!
+## ✨ 주요 기능 안내
+- **2가지 타자기 모드 (\`F9\`)**:
+  - **1번 (정중앙 고정)**: 커서가 화면 정중앙(50%)에 고정되고 문장이 상하좌우로 움직입니다.
+  - **2번 (상단 60% 줄 고정)**: 문장은 좌우로 움직이지 않고 커서만 이동하며, 작성 중인 줄이 상단 60% 위치에 고정됩니다. 행의 마지막에 도달하면 **'띵~' 차임벨** 소리가 울립니다.
+- **무음 + 10가지 타이핑 사운드**: 상단 스피커 아이콘 또는 환경설정(\`Cmd + ,\`)에서 클래식 타자기, 전동 타자기, 청축/갈축/적축, 조약돌 도각도각, 무접점, Omm 물방울 등 10가지 타건음을 선택할 수 있습니다.
+- **커스텀 배경 이미지 & 반투명 작성 영역**: 환경설정에서 **Custom 테마**를 선택하여 원하는 배경 이미지와 글 작성 영역의 투명 배경색을 자유롭게 지정해 보세요.
+- **창 자유 이동 & 모니터 중앙 정렬**: 상단 바를 마우스로 드래그해 창을 원하는 위치로 이동하고, 상단 **가로 중앙 정렬 아이콘**을 눌러 언제든 모니터 중앙(\`margin: 0 auto\`)으로 정렬할 수 있습니다.
 `;
 
 export default function App() {
@@ -81,8 +88,8 @@ export default function App() {
   const sourceComposingRef = useRef<boolean>(false);
   const sourceLastCompletedPosRef = useRef<number>(-1);
   const sourceLastLenRef = useRef<number>(0);
+  const sourceLastBellLineRef = useRef<number>(-1);
 
-  // Active tab helper
   const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
 
   const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
@@ -97,6 +104,24 @@ export default function App() {
     });
   }, []);
 
+  // Cycle Typewriter Mode: Off -> Mode 1 ("horizontal") -> Mode 2 ("vertical") -> Off
+  const handleCycleTypewriter = useCallback(() => {
+    if (!settings.typewriterMode) {
+      updateSettings({ typewriterMode: true, typewriterStyle: "horizontal" });
+    } else if (settings.typewriterStyle === "horizontal") {
+      updateSettings({ typewriterMode: true, typewriterStyle: "vertical" });
+    } else {
+      updateSettings({ typewriterMode: false });
+    }
+  }, [settings.typewriterMode, settings.typewriterStyle, updateSettings]);
+
+  // Center Window Horizontally on Monitor (margin: 0px auto)
+  const handleCenterWindow = useCallback(() => {
+    invoke("center_window_horizontally").catch(() => {
+      getCurrentWindow().center().catch(() => {});
+    });
+  }, []);
+
   // Sync editor content whenever active tab changes
   useEffect(() => {
     if (activeTab && editorRef.current) {
@@ -106,7 +131,6 @@ export default function App() {
 
   // Tab Operations
   const handleNewTab = useCallback(() => {
-    // Save current active tab content from editor first
     const currentMarkdown = editorRef.current?.getMarkdown();
     const newTabId = `tab-${Date.now()}`;
     const newTabName = `제목 없음 ${tabs.length + 1}`;
@@ -140,7 +164,6 @@ export default function App() {
     (targetId: string) => {
       if (targetId === activeTabId) return;
 
-      // Persist current editor text to active tab
       const currentMarkdown = editorRef.current?.getMarkdown() || activeTab.content;
       setTabs((prev) =>
         prev.map((t) => (t.id === activeTabId ? { ...t, content: currentMarkdown } : t))
@@ -172,7 +195,6 @@ export default function App() {
         if (!confirmClose) return;
       }
 
-      // If only one tab left, reset it to empty
       if (tabs.length === 1) {
         const emptyTab: TabItem = {
           id: `tab-${Date.now()}`,
@@ -193,7 +215,6 @@ export default function App() {
       setTabs(remainingTabs);
 
       if (targetId === activeTabId) {
-        // Switch to adjacent tab
         const nextIndex = Math.min(closingIndex, remainingTabs.length - 1);
         const nextTab = remainingTabs[nextIndex];
         setActiveTabId(nextTab.id);
@@ -205,20 +226,21 @@ export default function App() {
     [tabs, activeTabId]
   );
 
-  // File Open (Opens in existing tab if already open, or creates a new tab)
   const handleOpen = useCallback(async () => {
     try {
       const res = await invoke<FileInfo | null>("open_file_dialog");
       if (res) {
-        // Check if file is already open in a tab
         const existingTab = tabs.find((t) => t.path === res.path);
         if (existingTab) {
           handleSelectTab(existingTab.id);
           return;
         }
 
-        // If current active tab is empty and unsaved, reuse it
-        if (!activeTab.path && !activeTab.isDirty && (activeTab.content.trim() === "" || activeTab.content === "# 제목 없음\n\n")) {
+        if (
+          !activeTab.path &&
+          !activeTab.isDirty &&
+          (activeTab.content.trim() === "" || activeTab.content === "# 제목 없음\n\n")
+        ) {
           setTabs((prev) =>
             prev.map((t) =>
               t.id === activeTab.id
@@ -230,7 +252,6 @@ export default function App() {
           return;
         }
 
-        // Otherwise open in a new tab
         const newTabId = `tab-${Date.now()}`;
         const newTab: TabItem = {
           id: newTabId,
@@ -253,7 +274,6 @@ export default function App() {
     }
   }, [tabs, activeTab, handleSelectTab]);
 
-  // File Save
   const handleSave = useCallback(async () => {
     const currentMarkdown = activeTab.isSourceMode
       ? activeTab.content
@@ -314,7 +334,6 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Mode & UI Toggles
   const handleToggleSourceMode = useCallback(() => {
     const md = editorRef.current?.getMarkdown() || activeTab.content;
     const newSourceMode = !activeTab.isSourceMode;
@@ -334,11 +353,6 @@ export default function App() {
     setIsOutlineOpen((prev) => !prev);
   };
 
-  const handleThemeSelect = (theme: TyporaTheme) => {
-    updateSettings({ theme });
-  };
-
-  // HTML Export Dialog
   const handleExportHtmlFile = useCallback(async () => {
     let bodyHtml = "";
     if (editorRef.current) {
@@ -349,24 +363,21 @@ export default function App() {
     }
 
     const title = activeTab.name.replace(/\.md$/i, "");
-    const fullHtml = generateStandaloneHtml(title, bodyHtml, settings.theme);
+    const exportTheme = settings.theme === "custom" ? "github" : settings.theme;
+    const fullHtml = generateStandaloneHtml(title, bodyHtml, exportTheme);
     const defaultName = `${title}.html`;
 
     try {
-      const res = await invoke<string | null>("export_html_dialog", {
+      await invoke<string | null>("export_html_dialog", {
         defaultName,
         content: fullHtml,
       });
-      if (res) {
-        console.log("HTML 저장 완료:", res);
-      }
     } catch (err) {
       console.error("HTML 내보내기 실패:", err);
       alert(`HTML 내보내기 실패: ${err}`);
     }
   }, [activeTab, settings.theme]);
 
-  // HTML Code Copy to Clipboard
   const handleCopyHtmlCode = useCallback(async () => {
     let bodyHtml = "";
     if (editorRef.current) {
@@ -385,7 +396,6 @@ export default function App() {
     }
   }, [activeTab]);
 
-  // Cheatsheet Insert Handler
   const handleInsertSyntax = useCallback(
     (syntax: string) => {
       if (activeTab.isSourceMode) {
@@ -427,7 +437,7 @@ export default function App() {
     [activeTab]
   );
 
-  // Source Code Mode Typewriter Centering (Caret at exact 50% X & Y, with smooth carriage return glide)
+  // Source Code Mode Typewriter Centering (Mode 1 & Mode 2 + Bell)
   const scheduleSourceTypewriterScroll = useCallback((forceGlide = false) => {
     if (!settings.typewriterMode) return;
     requestAnimationFrame(() => {
@@ -436,19 +446,27 @@ export default function App() {
       const viewport = document.querySelector<HTMLElement>(".editor-viewport");
       if (!textarea || !container || !viewport) return;
 
-      // Ensure textarea accommodates full content height
       textarea.style.height = "auto";
       textarea.style.height = `${Math.max(textarea.scrollHeight, 400)}px`;
 
       const selectionEnd = textarea.selectionEnd;
       const fullText = textarea.value;
+      const prevLen = sourceLastLenRef.current;
       const charBefore = selectionEnd > 0 ? fullText.slice(selectionEnd - 1, selectionEnd) : "";
       const isComposingKorean =
         sourceComposingRef.current && /[ㄱ-ㅎㅏ-ㅣ가-힣\u1100-\u11FF\u3130-\u318F]/.test(charBefore);
 
-      const completedPos = isComposingKorean ? Math.max(0, selectionEnd - 1) : selectionEnd;
+      const completedPos =
+        settings.typewriterStyle === "horizontal" && isComposingKorean
+          ? Math.max(0, selectionEnd - 1)
+          : selectionEnd;
 
-      if (!forceGlide && isComposingKorean && completedPos === sourceLastCompletedPosRef.current) {
+      if (
+        settings.typewriterStyle === "horizontal" &&
+        !forceGlide &&
+        isComposingKorean &&
+        completedPos === sourceLastCompletedPosRef.current
+      ) {
         sourceLastLenRef.current = fullText.length;
         return;
       }
@@ -459,11 +477,10 @@ export default function App() {
       const currentLineText = lines[lineIndex];
 
       const computed = window.getComputedStyle(textarea);
-      const lineHeight = parseFloat(computed.lineHeight) || (settings.fontSize * settings.lineHeight);
+      const lineHeight = parseFloat(computed.lineHeight) || settings.fontSize * settings.lineHeight;
       const paddingLeft = parseFloat(computed.paddingLeft) || 32;
       const paddingTop = parseFloat(computed.paddingTop) || 40;
 
-      // Measure caret X offset in pixels using standard canvas text metrics
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
       let textWidth = 0;
@@ -473,27 +490,44 @@ export default function App() {
       }
 
       const viewportRect = viewport.getBoundingClientRect();
-      const targetCenterX = viewportRect.width / 2;
-      const targetCenterY = viewportRect.height / 2;
+      const containerRect = container.getBoundingClientRect();
 
       const caretXInContainer = paddingLeft + textWidth;
       const caretYInContainer = paddingTop + lineIndex * lineHeight + lineHeight / 2;
 
-      let targetTx = Math.round(targetCenterX - caretXInContainer);
-      const targetTy = Math.round(targetCenterY - caretYInContainer);
+      if (!forceGlide && settings.typewriterBell && fullText.length >= prevLen && prevLen > 0) {
+        const rightLimit = containerRect.width - paddingLeft * 2 - 24;
+        if (textWidth >= rightLimit && sourceLastBellLineRef.current !== lineIndex) {
+          sourceLastBellLineRef.current = lineIndex;
+          playCarriageReturnBell();
+        }
+      }
 
       const lastTx = sourceTransformRef.current.tx;
       const lastTy = sourceTransformRef.current.ty;
 
-      const isForwardTyping =
-        !forceGlide &&
-        fullText.length >= sourceLastLenRef.current &&
-        sourceLastCompletedPosRef.current >= 0 &&
-        completedPos >= sourceLastCompletedPosRef.current;
-      const isSameLine = Math.abs(targetTy - lastTy) < 10;
+      let targetTx: number;
+      let targetTy: number;
 
-      if (isForwardTyping && isSameLine && targetTx > lastTx && (lastTx !== 0 || lastTy !== 0)) {
-        targetTx = lastTx;
+      if (settings.typewriterStyle === "vertical") {
+        targetTx = Math.round(Math.max(0, (viewportRect.width - containerRect.width) / 2));
+        targetTy = Math.round(viewportRect.height * 0.6 - caretYInContainer);
+      } else {
+        const targetCenterX = viewportRect.width / 2;
+        const targetCenterY = viewportRect.height / 2;
+        targetTx = Math.round(targetCenterX - caretXInContainer);
+        targetTy = Math.round(targetCenterY - caretYInContainer);
+
+        const isForwardTyping =
+          !forceGlide &&
+          fullText.length >= prevLen &&
+          sourceLastCompletedPosRef.current >= 0 &&
+          completedPos >= sourceLastCompletedPosRef.current;
+        const isSameLine = Math.abs(targetTy - lastTy) < 10;
+
+        if (isForwardTyping && isSameLine && targetTx > lastTx && (lastTx !== 0 || lastTy !== 0)) {
+          targetTx = lastTx;
+        }
       }
 
       sourceLastCompletedPosRef.current = completedPos;
@@ -502,7 +536,8 @@ export default function App() {
       const deltaX = Math.abs(targetTx - lastTx);
       const deltaY = Math.abs(targetTy - lastTy);
 
-      const isLineWrapOrJump = forceGlide || deltaX > 60 || deltaY > 40;
+      const isLineWrapOrJump =
+        forceGlide || deltaX > 60 || deltaY > 40 || (settings.typewriterStyle === "vertical" && deltaY > 10);
 
       if (isLineWrapOrJump) {
         container.style.transition = "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)";
@@ -523,7 +558,13 @@ export default function App() {
       sourceTransformRef.current = { tx: targetTx, ty: targetTy };
       container.style.transform = `translate3d(${targetTx}px, ${targetTy}px, 0)`;
     });
-  }, [settings.typewriterMode, settings.fontSize, settings.lineHeight]);
+  }, [
+    settings.typewriterMode,
+    settings.typewriterStyle,
+    settings.typewriterBell,
+    settings.fontSize,
+    settings.lineHeight,
+  ]);
 
   useEffect(() => {
     if (activeTab.isSourceMode) {
@@ -546,7 +587,7 @@ export default function App() {
     } else if (settings.typewriterMode) {
       editorRef.current?.centerTypewriter();
     }
-  }, [activeTab.isSourceMode, settings.typewriterMode, scheduleSourceTypewriterScroll]);
+  }, [activeTab.isSourceMode, settings.typewriterMode, settings.typewriterStyle, scheduleSourceTypewriterScroll]);
 
   // Enable smooth mouse wheel browsing in source mode typewriter
   useEffect(() => {
@@ -582,7 +623,7 @@ export default function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, [settings.typewriterMode, activeTab.isSourceMode, scheduleSourceTypewriterScroll]);
 
-  // Keyboard Shortcuts (Cmd/Ctrl + S, O, N, T, W, /, ,, F9/Cmd+Alt+T)
+  // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMeta = e.metaKey || e.ctrlKey;
@@ -610,13 +651,22 @@ export default function App() {
         setIsSettingsOpen((prev) => !prev);
       } else if (e.key === "F9" || (isMeta && e.altKey && e.key.toLowerCase() === "t")) {
         e.preventDefault();
-        updateSettings({ typewriterMode: !settings.typewriterMode });
+        handleCycleTypewriter();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleSave, handleSaveAs, handleOpen, handleNewTab, handleCloseTab, activeTabId, handleToggleSourceMode, updateSettings, settings.typewriterMode]);
+  }, [
+    handleSave,
+    handleSaveAs,
+    handleOpen,
+    handleNewTab,
+    handleCloseTab,
+    activeTabId,
+    handleToggleSourceMode,
+    handleCycleTypewriter,
+  ]);
 
   const handleSourceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
@@ -646,6 +696,8 @@ export default function App() {
     setOutline(items);
   };
 
+  const customEditorRgba = hexToRgba(settings.customEditorBgColor, settings.customEditorBgOpacity);
+
   return (
     <div
       className={`app-root theme-${settings.theme} font-${settings.fontFamily}`}
@@ -653,6 +705,14 @@ export default function App() {
         {
           "--editor-font-size": `${settings.fontSize}px`,
           "--editor-line-height": settings.lineHeight,
+          "--custom-editor-bg": customEditorRgba,
+          "--custom-text-color": settings.customTextColor,
+          backgroundImage:
+            settings.theme === "custom" && settings.customBgImage
+              ? `url("${settings.customBgImage}")`
+              : undefined,
+          backgroundSize: settings.theme === "custom" ? "cover" : undefined,
+          backgroundPosition: settings.theme === "custom" ? "center" : undefined,
         } as React.CSSProperties
       }
     >
@@ -662,7 +722,9 @@ export default function App() {
         isSourceMode={activeTab.isSourceMode}
         isOutlineOpen={isOutlineOpen}
         isCheatsheetOpen={isCheatsheetOpen}
-        currentTheme={settings.theme}
+        typewriterMode={settings.typewriterMode}
+        typewriterStyle={settings.typewriterStyle}
+        typingSound={settings.typingSound}
         onNew={handleNewTab}
         onOpen={handleOpen}
         onSave={handleSave}
@@ -670,7 +732,9 @@ export default function App() {
         onToggleSourceMode={handleToggleSourceMode}
         onToggleOutline={handleToggleOutline}
         onToggleCheatsheet={() => setIsCheatsheetOpen((prev) => !prev)}
-        onThemeSelect={handleThemeSelect}
+        onCycleTypewriter={handleCycleTypewriter}
+        onSelectTypingSound={(sound) => updateSettings({ typingSound: sound })}
+        onCenterWindow={handleCenterWindow}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onExportHtmlFile={handleExportHtmlFile}
         onCopyHtmlCode={handleCopyHtmlCode}
@@ -705,7 +769,7 @@ export default function App() {
 
         <main
           className={`editor-viewport width-${settings.contentWidth} ${
-            settings.typewriterMode ? "typewriter-mode" : ""
+            settings.typewriterMode ? `typewriter-mode typewriter-${settings.typewriterStyle}` : ""
           }`}
         >
           {activeTab.isSourceMode && (
@@ -717,6 +781,11 @@ export default function App() {
                 onChange={(e) => {
                   handleSourceChange(e);
                   scheduleSourceTypewriterScroll();
+                }}
+                onKeyDown={(e) => {
+                  if (!e.metaKey && !e.ctrlKey && !e.altKey && settings.typingSound !== "off") {
+                    playTypingSound(settings.typingSound, e.key);
+                  }
                 }}
                 onSelect={() => scheduleSourceTypewriterScroll()}
                 onKeyUp={() => scheduleSourceTypewriterScroll()}
@@ -748,6 +817,9 @@ export default function App() {
               ref={editorRef}
               initialContent={activeTab.content}
               typewriterMode={settings.typewriterMode}
+              typewriterStyle={settings.typewriterStyle}
+              typewriterBell={settings.typewriterBell}
+              typingSound={settings.typingSound}
               onChange={(md) => {
                 setTabs((prev) =>
                   prev.map((t) => (t.id === activeTab.id ? { ...t, content: md, isDirty: true } : t))
@@ -773,7 +845,8 @@ export default function App() {
         isDirty={activeTab.isDirty}
         isSourceMode={activeTab.isSourceMode}
         typewriterMode={settings.typewriterMode}
-        onToggleTypewriter={() => updateSettings({ typewriterMode: !settings.typewriterMode })}
+        typewriterStyle={settings.typewriterStyle}
+        onToggleTypewriter={handleCycleTypewriter}
         filePath={activeTab.path}
       />
 

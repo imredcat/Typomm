@@ -1621,3 +1621,265 @@ input:checked + .slider:before {
   border-color: var(--accent-color);
   background-color: #3e454d;
 }
+
+
+/* =========================================================
+   OmmWriter Minimal Toolbar & Sound Menu & Custom Theme
+   ========================================================= */
+
+.omm-minimal-toolbar {
+  height: 40px;
+  border-bottom: 1px solid var(--border-subtle);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: opacity 0.25s ease, background-color 0.2s ease;
+}
+
+.toolbar-btn.icon-only {
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 7px;
+  position: relative;
+  opacity: 0.78;
+  transition: opacity 0.15s ease, background-color 0.15s ease, transform 0.1s ease;
+}
+
+.toolbar-btn.icon-only:hover {
+  opacity: 1;
+}
+
+.toolbar-btn.icon-only.active {
+  opacity: 1;
+}
+
+.mini-mode-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* Sound Menu Popup */
+.sound-menu-popup {
+  width: 280px;
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+
+.popup-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 6px 10px 4px 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sound-menu-list {
+  overflow-y: auto;
+  max-height: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-menu-item.sound-item.selected {
+  background-color: var(--accent-subtle);
+  border: 1px solid var(--accent-color);
+}
+
+/* ----------------- Custom Theme (Background Image + Translucent Editor Area) ----------------- */
+.theme-custom {
+  --bg-primary: transparent;
+  --bg-secondary: rgba(255, 255, 255, 0.72);
+  --bg-tertiary: rgba(0, 0, 0, 0.06);
+  --text-primary: var(--custom-text-color, #22262c);
+  --text-secondary: var(--custom-text-color, #333942);
+  --text-muted: rgba(100, 116, 139, 0.85);
+  --border-color: rgba(148, 163, 184, 0.28);
+  --border-subtle: rgba(148, 163, 184, 0.18);
+  --accent-color: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-subtle: rgba(59, 130, 246, 0.12);
+  --code-bg: rgba(15, 23, 42, 0.07);
+  --blockquote-border: rgba(100, 116, 139, 0.45);
+  --blockquote-text: var(--custom-text-color, #334155);
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+}
+
+.theme-custom .typora-toolbar,
+.theme-custom .typora-tabbar,
+.theme-custom .typora-statusbar {
+  background-color: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.theme-custom .editor-viewport {
+  background-color: transparent !important;
+}
+
+.theme-custom .editor-wrapper,
+.theme-custom .source-mode-container {
+  background-color: var(--custom-editor-bg, rgba(255, 255, 255, 0.78));
+  color: var(--custom-text-color, #22262c);
+  border-radius: 16px;
+  box-shadow: 0 12px 42px rgba(15, 23, 42, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.theme-custom .typora-editor-content,
+.theme-custom .source-textarea {
+  color: var(--custom-text-color, #22262c);
+}
+
+/* ----------------- Settings Modal: Custom Theme & Sound Grid ----------------- */
+.custom-theme-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 10px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.custom-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.wrap-group {
+  flex-wrap: wrap;
+}
+
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.color-input-native {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.color-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  font-size: 11px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.color-chip-btn.active {
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.chip-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.slider-control-row {
+  display: flex;
+  align-items: center;
+  width: 200px;
+}
+
+.opacity-range-slider {
+  width: 100%;
+  accent-color: var(--accent-color);
+  cursor: pointer;
+}
+
+.bell-control-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.preview-bell-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.sound-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.sound-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sound-card:hover {
+  border-color: var(--accent-color);
+}
+
+.sound-card.selected {
+  border-color: var(--accent-color);
+  background-color: var(--accent-subtle);
+  box-shadow: 0 0 0 1px var(--accent-color);
+}
+
+.sound-card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.sound-card-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
