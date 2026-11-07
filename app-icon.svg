@@ -1,76 +1,118 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <!-- Background Gradients -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1e222d"/>
-      <stop offset="50%" stop-color="#141720"/>
-      <stop offset="100%" stop-color="#0c0e14"/>
-    </linearGradient>
-
-    <!-- Subtle Inner Glow / Border -->
-    <linearGradient id="borderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4a5268" stop-opacity="0.6"/>
-      <stop offset="50%" stop-color="#2a303f" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="#181c26" stop-opacity="0.1"/>
-    </linearGradient>
-
-    <!-- Accent Gradient: Typomm Emerald & Cyan -->
-    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00f5a0"/>
-      <stop offset="100%" stop-color="#00d9f5"/>
-    </linearGradient>
-
-    <!-- Header / T-Bar Gradient -->
-    <linearGradient id="tBarGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+    <!-- OmmWriter-inspired Serene Atmospheric Zen Gradients -->
+    <!-- Soft, peaceful mist-dawn paper background -->
+    <linearGradient id="zenBg" x1="20%" y1="0%" x2="80%" y2="100%">
       <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#d0d7de"/>
+      <stop offset="50%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#edf2f7"/>
     </linearGradient>
 
-    <!-- Shadow Filter -->
-    <filter id="dropShadow" x="-10%" y="-10%" width="125%" height="125%">
-      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.45"/>
+    <!-- Subtle Ambient Inner Border -->
+    <linearGradient id="zenBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#cbd5e1" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#94a3b8" stop-opacity="0.2"/>
+    </linearGradient>
+
+    <!-- Calligraphy Ink Feather Gradient -->
+    <linearGradient id="inkGrad" x1="30%" y1="10%" x2="70%" y2="90%">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="45%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+
+    <!-- Calming Aurora Dawn Accent (OmmWriter Gaia spirit) -->
+    <linearGradient id="auroraGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25"/>
+      <stop offset="50%" stop-color="#818cf8" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#34d399" stop-opacity="0.05"/>
+    </linearGradient>
+
+    <!-- Luminous Zen Droplet Accent -->
+    <linearGradient id="dropGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+
+    <!-- Soft Diffuse Shadows -->
+    <filter id="squircleShadow" x="-10%" y="-10%" width="125%" height="125%">
+      <feDropShadow dx="0" dy="20" stdDeviation="28" flood-color="#0f172a" flood-opacity="0.12"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.06"/>
     </filter>
 
-    <filter id="glyphGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#00f5a0" flood-opacity="0.25"/>
+    <filter id="featherShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#0f172a" flood-opacity="0.15"/>
     </filter>
   </defs>
 
-  <!-- macOS App Squircle Base (1024x1024 canvas, 864x864 squircle) -->
-  <rect x="80" y="80" width="864" height="864" rx="196" ry="196" fill="url(#bgGrad)" filter="url(#dropShadow)"/>
-  <rect x="81" y="81" width="862" height="862" rx="195" ry="195" fill="none" stroke="url(#borderGrad)" stroke-width="2.5"/>
+  <!-- 1. Apple macOS Squircle Canvas Base -->
+  <rect x="80" y="80" width="864" height="864" rx="196" ry="196" fill="url(#zenBg)" filter="url(#squircleShadow)"/>
+  <rect x="81" y="81" width="862" height="862" rx="195" ry="195" fill="none" stroke="url(#zenBorder)" stroke-width="2"/>
 
-  <!-- Subtle Ambient Glow -->
-  <circle cx="512" cy="512" r="280" fill="url(#accentGrad)" opacity="0.08"/>
+  <!-- 2. Atmospheric Ambient Light (Subtle circular aura behind feather) -->
+  <circle cx="512" cy="512" r="320" fill="url(#auroraGlow)"/>
 
-  <!-- Modern Stylized T & Pen Nib Monogram -->
-  <g filter="url(#glyphGlow)">
-    <!-- T Horizontal Top Bar (Clean, rounded, architectural) -->
-    <rect x="256" y="270" width="512" height="68" rx="34" ry="34" fill="url(#tBarGrad)"/>
+  <!-- 3. Minimalist Zen Floating Feather & Quill Emblem -->
+  <g filter="url(#featherShadow)">
+    <!-- Right Upper Feather Barb (Flowing, weightless organic curve) -->
+    <path d="M 518 200 
+             C 610 230, 690 320, 690 440 
+             C 690 510, 650 580, 590 630 
+             C 566 610, 545 565, 542 525 
+             C 575 510, 600 465, 600 420 
+             C 600 345, 550 280, 518 200 Z" 
+          fill="url(#inkGrad)"/>
 
-    <!-- Left Wing of Monogram 'M' (Subtle architectural geometric fold) -->
-    <path d="M 276 430 L 396 660 L 396 740 L 276 510 Z" fill="#ffffff" opacity="0.15"/>
+    <!-- Left Upper Feather Barb (Delicate balanced curvature) -->
+    <path d="M 512 200 
+             C 420 250, 350 350, 350 470 
+             C 350 540, 385 605, 440 655 
+             C 455 630, 470 585, 474 540 
+             C 445 520, 424 475, 424 430 
+             C 424 350, 476 270, 512 200 Z" 
+          fill="url(#inkGrad)"/>
 
-    <!-- Right Wing of Monogram 'M' -->
-    <path d="M 748 430 L 628 660 L 628 740 L 748 510 Z" fill="#ffffff" opacity="0.15"/>
+    <!-- Mid Feather Flume (Secondary organic feather vane) -->
+    <path d="M 536 490 
+             C 575 530, 610 590, 605 650 
+             C 575 665, 545 640, 532 605 Z" 
+          fill="url(#inkGrad)" opacity="0.9"/>
 
-    <!-- Center T-Stem transitioning into Fountain Pen Nib -->
-    <!-- Upper vertical stem of T -->
-    <path d="M 466 338 L 558 338 L 558 480 L 466 480 Z" fill="url(#tBarGrad)"/>
+    <path d="M 480 500 
+             C 440 545, 410 605, 418 665 
+             C 448 675, 476 650, 486 615 Z" 
+          fill="url(#inkGrad)" opacity="0.9"/>
 
-    <!-- Pen Nib Body (Descending from T to sharp nib tip) -->
-    <path d="M 454 480 
-             L 570 480 
-             L 600 600 
-             L 512 770 
-             L 424 600 Z" 
-          fill="url(#accentGrad)"/>
+    <!-- Central Spine (Rachis) transitioning into Calligraphy Pen Nib -->
+    <!-- The central graceful shaft -->
+    <path d="M 514 200 
+             C 517 380, 515 540, 512 670 
+             L 512 760 
+             L 508 760 
+             L 508 670 
+             C 505 540, 507 380, 510 200 Z" 
+          fill="#0f172a"/>
 
-    <!-- Pen Nib Slit & Breather Hole -->
-    <circle cx="512" cy="580" r="16" fill="#141720"/>
-    <line x1="512" y1="596" x2="512" y2="764" stroke="#141720" stroke-width="7" stroke-linecap="round"/>
+    <!-- Calligraphy Pen Nib Base & Tip (The grounding of writing) -->
+    <path d="M 490 670 
+             C 490 670, 480 730, 472 755 
+             C 470 762, 475 770, 483 770 
+             L 507 770 
+             L 510 820 
+             L 514 820 
+             L 517 770 
+             L 541 770 
+             C 549 770, 554 762, 552 755 
+             C 544 730, 534 670, 534 670 Z" 
+          fill="url(#inkGrad)"/>
 
-    <!-- Minimalist Markdown Indicator (Corner Accent dot) -->
-    <circle cx="704" cy="304" r="10" fill="url(#accentGrad)"/>
+    <!-- Nib Breather Hole & Center Slit -->
+    <circle cx="512" cy="740" r="7" fill="#f8fafc"/>
+    <line x1="512" y1="747" x2="512" y2="820" stroke="#f8fafc" stroke-width="3" stroke-linecap="round"/>
+
+    <!-- 4. The Zen Ink Droplet (OmmWriter's meditative serenity drop) -->
+    <circle cx="512" cy="855" r="10" fill="url(#dropGrad)"/>
+    <circle cx="510" cy="853" r="3" fill="#ffffff" opacity="0.7"/>
   </g>
 </svg>
