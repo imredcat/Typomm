@@ -1,118 +1,142 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <!-- OmmWriter-inspired Serene Atmospheric Zen Gradients -->
-    <!-- Soft, peaceful mist-dawn paper background -->
-    <linearGradient id="zenBg" x1="20%" y1="0%" x2="80%" y2="100%">
+    <!-- Background Canvas: Deep Serene Studio Dark -->
+    <linearGradient id="canvasBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#20242e"/>
+      <stop offset="50%" stop-color="#14161d"/>
+      <stop offset="100%" stop-color="#0a0c0f"/>
+    </linearGradient>
+
+    <linearGradient id="canvasBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475066" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#1e222d" stop-opacity="0.1"/>
+    </linearGradient>
+
+    <!-- Metallic Chrome Bezel Ring Gradients -->
+    <!-- Outer Rim: Polished Steel / Nickel -->
+    <linearGradient id="metalOuter" x1="20%" y1="10%" x2="80%" y2="90%">
       <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="50%" stop-color="#f8fafc"/>
-      <stop offset="100%" stop-color="#edf2f7"/>
+      <stop offset="20%" stop-color="#cbd5e1"/>
+      <stop offset="45%" stop-color="#475569"/>
+      <stop offset="70%" stop-color="#e2e8f0"/>
+      <stop offset="100%" stop-color="#1e293b"/>
     </linearGradient>
 
-    <!-- Subtle Ambient Inner Border -->
-    <linearGradient id="zenBorder" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9"/>
-      <stop offset="50%" stop-color="#cbd5e1" stop-opacity="0.4"/>
-      <stop offset="100%" stop-color="#94a3b8" stop-opacity="0.2"/>
-    </linearGradient>
-
-    <!-- Calligraphy Ink Feather Gradient -->
-    <linearGradient id="inkGrad" x1="30%" y1="10%" x2="70%" y2="90%">
+    <!-- Mid Bezel Chamfer -->
+    <linearGradient id="metalChamfer" x1="0%" y1="100%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#0f172a"/>
-      <stop offset="45%" stop-color="#1e293b"/>
+      <stop offset="40%" stop-color="#64748b"/>
+      <stop offset="70%" stop-color="#f1f5f9"/>
       <stop offset="100%" stop-color="#334155"/>
     </linearGradient>
 
-    <!-- Calming Aurora Dawn Accent (OmmWriter Gaia spirit) -->
-    <linearGradient id="auroraGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.25"/>
-      <stop offset="50%" stop-color="#818cf8" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#34d399" stop-opacity="0.05"/>
+    <!-- Inner Key Face: Vintage Matte Obsidian Enamel -->
+    <radialGradient id="keycapEnamel" cx="45%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#2d3340"/>
+      <stop offset="50%" stop-color="#1a1d25"/>
+      <stop offset="100%" stop-color="#0c0e12"/>
+    </radialGradient>
+
+    <!-- Stamped Typewriter Letter T Gradient -->
+    <linearGradient id="letterTGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e2e8f0"/>
     </linearGradient>
 
-    <!-- Luminous Zen Droplet Accent -->
-    <linearGradient id="dropGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0284c7"/>
-      <stop offset="100%" stop-color="#0ea5e9"/>
+    <!-- Subtle Amber/Warm Vintage Accent (Like aged paper / brass) -->
+    <linearGradient id="vintageGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
     </linearGradient>
 
-    <!-- Soft Diffuse Shadows -->
-    <filter id="squircleShadow" x="-10%" y="-10%" width="125%" height="125%">
-      <feDropShadow dx="0" dy="20" stdDeviation="28" flood-color="#0f172a" flood-opacity="0.12"/>
-      <feDropShadow dx="0" dy="4" stdDeviation="10" flood-color="#0f172a" flood-opacity="0.06"/>
+    <!-- Tactile Keycap Shadows -->
+    <filter id="keyDropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="28" stdDeviation="36" flood-color="#000000" flood-opacity="0.6"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#000000" flood-opacity="0.35"/>
     </filter>
 
-    <filter id="featherShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#0f172a" flood-opacity="0.15"/>
+    <filter id="letterEmboss" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="2.5" flood-color="#000000" flood-opacity="0.7"/>
+      <feDropShadow dx="0" dy="-2" stdDeviation="1.5" flood-color="#ffffff" flood-opacity="0.35"/>
     </filter>
   </defs>
 
-  <!-- 1. Apple macOS Squircle Canvas Base -->
-  <rect x="80" y="80" width="864" height="864" rx="196" ry="196" fill="url(#zenBg)" filter="url(#squircleShadow)"/>
-  <rect x="81" y="81" width="862" height="862" rx="195" ry="195" fill="none" stroke="url(#zenBorder)" stroke-width="2"/>
+  <!-- 1. macOS Squircle App Icon Base -->
+  <rect x="80" y="80" width="864" height="864" rx="196" ry="196" fill="url(#canvasBg)"/>
+  <rect x="81" y="81" width="862" height="862" rx="195" ry="195" fill="none" stroke="url(#canvasBorder)" stroke-width="2"/>
 
-  <!-- 2. Atmospheric Ambient Light (Subtle circular aura behind feather) -->
-  <circle cx="512" cy="512" r="320" fill="url(#auroraGlow)"/>
+  <!-- Ambient Radial Vignette on Studio Canvas -->
+  <circle cx="512" cy="490" r="340" fill="url(#vintageGlow)"/>
 
-  <!-- 3. Minimalist Zen Floating Feather & Quill Emblem -->
-  <g filter="url(#featherShadow)">
-    <!-- Right Upper Feather Barb (Flowing, weightless organic curve) -->
-    <path d="M 518 200 
-             C 610 230, 690 320, 690 440 
-             C 690 510, 650 580, 590 630 
-             C 566 610, 545 565, 542 525 
-             C 575 510, 600 465, 600 420 
-             C 600 345, 550 280, 518 200 Z" 
-          fill="url(#inkGrad)"/>
+  <!-- 2. Vintage Typewriter Keycap Assembly -->
+  <g filter="url(#keyDropShadow)">
+    <!-- (a) Outer Metallic Bezel Ring (Heavy Chrome/Nickel Rim) -->
+    <circle cx="512" cy="512" r="316" fill="url(#metalOuter)"/>
 
-    <!-- Left Upper Feather Barb (Delicate balanced curvature) -->
-    <path d="M 512 200 
-             C 420 250, 350 350, 350 470 
-             C 350 540, 385 605, 440 655 
-             C 455 630, 470 585, 474 540 
-             C 445 520, 424 475, 424 430 
-             C 424 350, 476 270, 512 200 Z" 
-          fill="url(#inkGrad)"/>
+    <!-- (b) Outer Chamfer Rim (Dark Inset line for mechanical depth) -->
+    <circle cx="512" cy="512" r="306" fill="none" stroke="#0b0f19" stroke-width="3"/>
+    <circle cx="512" cy="512" r="303" fill="url(#metalChamfer)"/>
 
-    <!-- Mid Feather Flume (Secondary organic feather vane) -->
-    <path d="M 536 490 
-             C 575 530, 610 590, 605 650 
-             C 575 665, 545 640, 532 605 Z" 
-          fill="url(#inkGrad)" opacity="0.9"/>
+    <!-- (c) Inner Metallic Collar Ring -->
+    <circle cx="512" cy="512" r="284" fill="#181b22"/>
+    <circle cx="512" cy="512" r="280" fill="none" stroke="#cbd5e1" stroke-width="2" opacity="0.6"/>
 
-    <path d="M 480 500 
-             C 440 545, 410 605, 418 665 
-             C 448 675, 476 650, 486 615 Z" 
-          fill="url(#inkGrad)" opacity="0.9"/>
+    <!-- (d) The Deep Vintage Enamel Key Face -->
+    <circle cx="512" cy="512" r="274" fill="url(#keycapEnamel)"/>
 
-    <!-- Central Spine (Rachis) transitioning into Calligraphy Pen Nib -->
-    <!-- The central graceful shaft -->
-    <path d="M 514 200 
-             C 517 380, 515 540, 512 670 
-             L 512 760 
-             L 508 760 
-             L 508 670 
-             C 505 540, 507 380, 510 200 Z" 
-          fill="#0f172a"/>
+    <!-- (e) Subtle Glass / Convex Reflection Highlight -->
+    <path d="M 285 410 C 320 300, 420 248, 540 248 C 660 248, 725 295, 745 350 C 670 295, 540 270, 420 305 C 340 330, 298 375, 285 410 Z" fill="#ffffff" opacity="0.13"/>
 
-    <!-- Calligraphy Pen Nib Base & Tip (The grounding of writing) -->
-    <path d="M 490 670 
-             C 490 670, 480 730, 472 755 
-             C 470 762, 475 770, 483 770 
-             L 507 770 
-             L 510 820 
-             L 514 820 
-             L 517 770 
-             L 541 770 
-             C 549 770, 554 762, 552 755 
-             C 544 730, 534 670, 534 670 Z" 
-          fill="url(#inkGrad)"/>
+    <!-- 3. Classic Mechanical Typewriter "T" Letterform -->
+    <g filter="url(#letterEmboss)">
+      <!-- 
+        Authentic Underwood / Remington typewriter serif T:
+        - Broad sturdy top bar with distinct serif drops
+        - Strong vertical stem
+        - Solid mechanical slab base
+      -->
+      <!-- Top Crossbar & Left/Right Serifs -->
+      <path d="M 324 374 
+               L 324 316 
+               C 324 312, 328 308, 332 308 
+               L 404 308 
+               L 404 344 
+               L 374 344 
+               L 374 358 
+               L 650 358 
+               L 650 344 
+               L 620 344 
+               L 620 308 
+               L 692 308 
+               C 696 308, 700 312, 700 316 
+               L 700 374 
+               L 666 374 
+               L 666 362 
+               L 358 362 
+               L 358 374 Z" 
+            fill="url(#letterTGrad)"/>
 
-    <!-- Nib Breather Hole & Center Slit -->
-    <circle cx="512" cy="740" r="7" fill="#f8fafc"/>
-    <line x1="512" y1="747" x2="512" y2="820" stroke="#f8fafc" stroke-width="3" stroke-linecap="round"/>
+      <!-- Vertical Stem -->
+      <rect x="478" y="358" width="68" height="310" fill="url(#letterTGrad)"/>
 
-    <!-- 4. The Zen Ink Droplet (OmmWriter's meditative serenity drop) -->
-    <circle cx="512" cy="855" r="10" fill="url(#dropGrad)"/>
-    <circle cx="510" cy="853" r="3" fill="#ffffff" opacity="0.7"/>
+      <!-- Bottom Slab Serif Base -->
+      <path d="M 416 648 
+               L 416 686 
+               C 416 690, 420 694, 424 694 
+               L 600 694 
+               C 604 694, 608 690, 608 686 
+               L 608 648 
+               L 546 648 
+               L 546 636 
+               L 478 636 
+               L 478 648 Z" 
+            fill="url(#letterTGrad)"/>
+
+      <!-- Classic Typewriter Period Dot -->
+      <circle cx="658" cy="674" r="16" fill="url(#letterTGrad)"/>
+    </g>
+
+    <!-- Subtle Vintage Key Rim Bottom Shadow for Realistic 3D Inset -->
+    <path d="M 290 600 C 330 720, 430 784, 512 784 C 594 784, 694 720, 734 600 C 700 700, 610 766, 512 766 C 414 766, 324 700, 290 600 Z" fill="#000000" opacity="0.4"/>
   </g>
 </svg>
