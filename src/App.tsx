@@ -421,13 +421,14 @@ export default function App() {
     [activeTab]
   );
 
-  // Source Code Mode Typewriter Centering (Both Horizontal & Vertical Exact Center)
+  // Source Code Mode Typewriter Centering (Cursor fixed at center, document paper moves)
   const scheduleSourceTypewriterScroll = useCallback(() => {
     if (!settings.typewriterMode) return;
     requestAnimationFrame(() => {
       const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
       const viewport = document.querySelector<HTMLElement>(".editor-viewport");
-      if (!textarea || !viewport) return;
+      const paper = document.querySelector<HTMLElement>(".source-mode-container");
+      if (!textarea || !viewport || !paper) return;
 
       // Ensure textarea accommodates full content height
       textarea.style.height = "auto";
@@ -452,32 +453,37 @@ export default function App() {
         if (measured > 0) charWidth = measured;
       }
 
-      const textareaRect = textarea.getBoundingClientRect();
       const viewportRect = viewport.getBoundingClientRect();
 
-      const caretX = textareaRect.left + currentLineText.length * charWidth;
-      const caretY = textareaRect.top + lineIndex * lineHeight + lineHeight / 2;
+      // Viewport target crosshair
+      const targetX = viewportRect.width / 2;
+      const targetY = viewportRect.height / 2;
 
-      const targetX = viewportRect.left + viewportRect.width / 2;
-      const targetY = viewportRect.top + viewportRect.height / 2;
+      // Caret coordinates inside paper
+      const caretXInPaper = currentLineText.length * charWidth;
+      const caretYInPaper = lineIndex * lineHeight + lineHeight / 2;
 
-      const deltaX = caretX - targetX;
-      const deltaY = caretY - targetY;
+      // Move paper so caret stays at (targetX, targetY)
+      const paperLeft = Math.round(targetX - caretXInPaper);
+      const paperTop = Math.round(targetY - caretYInPaper);
 
-      if (Math.abs(deltaX) > 2) {
-        viewport.scrollLeft += deltaX;
-      }
-      if (Math.abs(deltaY) > 2) {
-        viewport.scrollTop += deltaY;
-      }
+      paper.style.transform = `translate3d(${paperLeft}px, ${paperTop}px, 0)`;
     });
   }, [settings.typewriterMode, settings.fontSize, settings.lineHeight]);
 
   useEffect(() => {
     if (activeTab.isSourceMode) {
-      scheduleSourceTypewriterScroll();
+      if (settings.typewriterMode) {
+        scheduleSourceTypewriterScroll();
+      } else {
+        const sourcePaper = document.querySelector<HTMLElement>(".source-mode-container");
+        if (sourcePaper) sourcePaper.style.transform = "";
+      }
     } else if (settings.typewriterMode) {
       editorRef.current?.centerTypewriter();
+    } else {
+      const editorPaper = document.querySelector<HTMLElement>(".editor-wrapper");
+      if (editorPaper) editorPaper.style.transform = "";
     }
   }, [activeTab.isSourceMode, settings.typewriterMode, scheduleSourceTypewriterScroll]);
 
@@ -495,6 +501,34 @@ export default function App() {
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [settings.typewriterMode, activeTab.isSourceMode, scheduleSourceTypewriterScroll]);
+
+  // Wheel scrolling in typewriter mode allows browsing without moving caret
+  useEffect(() => {
+    const viewport = document.querySelector<HTMLElement>(".editor-viewport");
+    if (!viewport) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!settings.typewriterMode) return;
+      e.preventDefault();
+
+      const paper = (activeTab.isSourceMode
+        ? document.querySelector<HTMLElement>(".source-mode-container")
+        : document.querySelector<HTMLElement>(".editor-wrapper")) as HTMLElement | null;
+
+      if (!paper) return;
+
+      const currentTransform = paper.style.transform;
+      const match = currentTransform.match(/translate3d\(([-0-9.]+)px,\s*([-0-9.]+)px/);
+      if (match) {
+        const currentX = parseFloat(match[1]);
+        const currentY = parseFloat(match[2]);
+        paper.style.transform = `translate3d(${currentX}px, ${currentY - e.deltaY}px, 0)`;
+      }
+    };
+
+    viewport.addEventListener("wheel", handleWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", handleWheel);
+  }, [settings.typewriterMode, activeTab.isSourceMode]);
 
   // Keyboard Shortcuts (Cmd/Ctrl + S, O, N, T, W, /, ,, F9/Cmd+Alt+T)
   useEffect(() => {

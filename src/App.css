@@ -359,18 +359,36 @@ body, html {
   transition: background-color 0.2s ease, padding 0.18s ease;
 }
 
-/* Typewriter Mode: Exact horizontal & vertical crosshair caret centering */
+/* Typewriter Mode: The cursor is locked at dead center, and sentences/paper glide */
 .editor-viewport.typewriter-mode {
-  padding: 50vh 50vw;
-  overflow-x: auto;
-  overflow-y: auto;
-  display: block;
-  scrollbar-width: none;
+  position: relative;
+  overflow: hidden !important;
+  display: block !important;
+  padding: 0 !important;
 }
 
-.editor-viewport.typewriter-mode::-webkit-scrollbar {
-  display: none;
+.editor-viewport.typewriter-mode .editor-wrapper,
+.editor-viewport.typewriter-mode .source-mode-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  margin: 0 !important;
+  width: 860px;
+  max-width: 860px;
+  will-change: transform;
 }
+
+.width-narrow.typewriter-mode .editor-wrapper,
+.width-narrow.typewriter-mode .source-mode-container { width: 720px !important; max-width: 720px !important; }
+
+.width-default.typewriter-mode .editor-wrapper,
+.width-default.typewriter-mode .source-mode-container { width: 860px !important; max-width: 860px !important; }
+
+.width-wide.typewriter-mode .editor-wrapper,
+.width-wide.typewriter-mode .source-mode-container { width: 1080px !important; max-width: 1080px !important; }
+
+.width-full.typewriter-mode .editor-wrapper,
+.width-full.typewriter-mode .source-mode-container { width: 1200px !important; max-width: 1200px !important; }
 
 /* Max Width Variants */
 .width-narrow .editor-wrapper,

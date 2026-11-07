@@ -42,26 +42,26 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         const coords = currentEditor.view.coordsAtPos(from);
         if (!coords || typeof coords.left !== "number") return;
 
-        const scrollContainer = currentEditor.view.dom.closest(".editor-viewport") as HTMLElement | null;
-        if (!scrollContainer) return;
+        const viewport = currentEditor.view.dom.closest(".editor-viewport") as HTMLElement | null;
+        const paper = currentEditor.view.dom.closest(".editor-wrapper") as HTMLElement | null;
+        if (!viewport || !paper) return;
 
-        const containerRect = scrollContainer.getBoundingClientRect();
-        // Exact horizontal & vertical center of the viewport
-        const targetX = containerRect.left + containerRect.width / 2;
-        const targetY = containerRect.top + containerRect.height / 2;
+        const viewportRect = viewport.getBoundingClientRect();
+        const paperRect = paper.getBoundingClientRect();
 
-        const caretX = coords.left;
-        const caretY = (coords.top + coords.bottom) / 2;
+        // Exact horizontal & vertical center of the viewport window
+        const targetX = viewportRect.width / 2;
+        const targetY = viewportRect.height / 2;
 
-        const deltaX = caretX - targetX;
-        const deltaY = caretY - targetY;
+        // Caret position relative to the paper container
+        const caretXInPaper = coords.left - paperRect.left;
+        const caretYInPaper = (coords.top + coords.bottom) / 2 - paperRect.top;
 
-        if (Math.abs(deltaX) > 2) {
-          scrollContainer.scrollLeft += deltaX;
-        }
-        if (Math.abs(deltaY) > 2) {
-          scrollContainer.scrollTop += deltaY;
-        }
+        // Position paper so caret is permanently locked at (targetX, targetY)
+        const paperLeft = Math.round(targetX - caretXInPaper);
+        const paperTop = Math.round(targetY - caretYInPaper);
+
+        paper.style.transform = `translate3d(${paperLeft}px, ${paperTop}px, 0)`;
       } catch {
         // Coords might be temporarily unavailable during rapid DOM mutations
       }
@@ -153,14 +153,14 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
 
     useEffect(() => {
       typewriterRef.current = typewriterMode;
-      const scrollContainer = document.querySelector<HTMLElement>(".editor-viewport");
+      const paper = document.querySelector<HTMLElement>(".editor-wrapper");
       if (typewriterMode) {
         if (editor) {
           scheduleTypewriterScroll(editor);
         }
       } else {
-        if (scrollContainer) {
-          scrollContainer.scrollLeft = 0;
+        if (paper) {
+          paper.style.transform = "";
         }
       }
     }, [typewriterMode, editor, scheduleTypewriterScroll]);
