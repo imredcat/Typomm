@@ -6,6 +6,8 @@ import { TabBar } from "./components/TabBar";
 import { Outline } from "./components/Outline";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsModal } from "./components/SettingsModal";
+import { CheatsheetModal } from "./components/CheatsheetModal";
+import { generateStandaloneHtml } from "./utils/htmlExporter";
 import { FileInfo, OutlineItem, AppSettings, DEFAULT_SETTINGS, TyporaTheme, TabItem } from "./types";
 import "./App.css";
 
@@ -54,6 +56,7 @@ export default function App() {
 
   const [isOutlineOpen, setIsOutlineOpen] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isCheatsheetOpen, setIsCheatsheetOpen] = useState<boolean>(false);
 
   // Settings State with LocalStorage Persistence
   const [settings, setSettings] = useState<AppSettings>(() => {
@@ -329,6 +332,94 @@ export default function App() {
     updateSettings({ theme });
   };
 
+  // HTML Export Dialog
+  const handleExportHtmlFile = useCallback(async () => {
+    let bodyHtml = "";
+    if (editorRef.current) {
+      if (activeTab.isSourceMode) {
+        editorRef.current.setMarkdown(activeTab.content);
+      }
+      bodyHtml = editorRef.current.getHTML();
+    }
+
+    const title = activeTab.name.replace(/\.md$/i, "");
+    const fullHtml = generateStandaloneHtml(title, bodyHtml, settings.theme);
+    const defaultName = `${title}.html`;
+
+    try {
+      const res = await invoke<string | null>("export_html_dialog", {
+        defaultName,
+        content: fullHtml,
+      });
+      if (res) {
+        console.log("HTML 저장 완료:", res);
+      }
+    } catch (err) {
+      console.error("HTML 내보내기 실패:", err);
+      alert(`HTML 내보내기 실패: ${err}`);
+    }
+  }, [activeTab, settings.theme]);
+
+  // HTML Code Copy to Clipboard
+  const handleCopyHtmlCode = useCallback(async () => {
+    let bodyHtml = "";
+    if (editorRef.current) {
+      if (activeTab.isSourceMode) {
+        editorRef.current.setMarkdown(activeTab.content);
+      }
+      bodyHtml = editorRef.current.getHTML();
+    }
+
+    try {
+      await navigator.clipboard.writeText(bodyHtml);
+      alert("본문 HTML 코드가 클립보드에 복사되었습니다!");
+    } catch (err) {
+      console.error("HTML 복사 실패:", err);
+      alert(`HTML 복사 실패: ${err}`);
+    }
+  }, [activeTab]);
+
+  // Cheatsheet Insert Handler
+  const handleInsertSyntax = useCallback(
+    (syntax: string) => {
+      if (activeTab.isSourceMode) {
+        const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
+        if (textarea) {
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          const oldText = textarea.value;
+          const newText =
+            oldText.substring(0, start) +
+            (start > 0 && !oldText.endsWith("\n", start) ? "\n" : "") +
+            syntax +
+            "\n" +
+            oldText.substring(end);
+
+          setTabs((prev) =>
+            prev.map((t) => (t.id === activeTab.id ? { ...t, content: newText, isDirty: true } : t))
+          );
+          setTimeout(() => {
+            textarea.focus();
+            const newPos = start + syntax.length + 1;
+            textarea.setSelectionRange(newPos, newPos);
+          }, 10);
+        } else {
+          setTabs((prev) =>
+            prev.map((t) =>
+              t.id === activeTab.id
+                ? { ...t, content: t.content + "\n" + syntax, isDirty: true }
+                : t
+            )
+          );
+        }
+      } else {
+        editorRef.current?.insertText("\n" + syntax + "\n");
+        editorRef.current?.focus();
+      }
+    },
+    [activeTab]
+  );
+
   // Keyboard Shortcuts (Cmd/Ctrl + S, O, N, T, W, /, ,)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -414,6 +505,9 @@ export default function App() {
         onToggleOutline={handleToggleOutline}
         onThemeSelect={handleThemeSelect}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenCheatsheet={() => setIsCheatsheetOpen(true)}
+        onExportHtmlFile={handleExportHtmlFile}
+        onCopyHtmlCode={handleCopyHtmlCode}
       />
 
       <TabBar
@@ -444,7 +538,7 @@ export default function App() {
         )}
 
         <main className={`editor-viewport width-${settings.contentWidth}`}>
-          {activeTab.isSourceMode ? (
+          {activeTab.isSourceMode && (
             <div className="source-mode-container">
               <textarea
                 className="source-textarea"
@@ -455,24 +549,27 @@ export default function App() {
                 autoFocus
               />
             </div>
-          ) : (
-            <div
-              className="editor-wrapper"
-              style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineHeight }}
-            >
-              <Editor
-                ref={editorRef}
-                initialContent={activeTab.content}
-                onChange={(md) => {
-                  setTabs((prev) =>
-                    prev.map((t) => (t.id === activeTab.id ? { ...t, content: md, isDirty: true } : t))
-                  );
-                }}
-                onOutlineUpdate={setOutline}
-                onStatsUpdate={setStats}
-              />
-            </div>
           )}
+          <div
+            className="editor-wrapper"
+            style={{
+              fontSize: `${settings.fontSize}px`,
+              lineHeight: settings.lineHeight,
+              display: activeTab.isSourceMode ? "none" : "block",
+            }}
+          >
+            <Editor
+              ref={editorRef}
+              initialContent={activeTab.content}
+              onChange={(md) => {
+                setTabs((prev) =>
+                  prev.map((t) => (t.id === activeTab.id ? { ...t, content: md, isDirty: true } : t))
+                );
+              }}
+              onOutlineUpdate={setOutline}
+              onStatsUpdate={setStats}
+            />
+          </div>
         </main>
       </div>
 
@@ -489,6 +586,12 @@ export default function App() {
         settings={settings}
         onUpdateSettings={updateSettings}
         onClose={() => setIsSettingsOpen(false)}
+      />
+
+      <CheatsheetModal
+        isOpen={isCheatsheetOpen}
+        onClose={() => setIsCheatsheetOpen(false)}
+        onInsert={handleInsertSyntax}
       />
     </div>
   );

@@ -84,6 +84,24 @@ fn save_file_as_dialog(default_name: Option<String>, content: String) -> Result<
     }
 }
 
+#[tauri::command]
+fn export_html_dialog(default_name: Option<String>, content: String) -> Result<Option<String>, String> {
+    let mut dialog = rfd::FileDialog::new().add_filter("HTML Document", &["html", "htm"]);
+    if let Some(ref name) = default_name {
+        dialog = dialog.set_file_name(name);
+    }
+
+    let file = dialog.save_file();
+
+    if let Some(path_buf) = file {
+        let path_str = path_buf.to_string_lossy().to_string();
+        fs::write(&path_buf, &content).map_err(|e| e.to_string())?;
+        Ok(Some(path_str))
+    } else {
+        Ok(None)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -92,7 +110,8 @@ pub fn run() {
             open_file_dialog,
             read_file,
             save_file,
-            save_file_as_dialog
+            save_file_as_dialog,
+            export_html_dialog
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

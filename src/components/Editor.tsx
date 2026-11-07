@@ -13,7 +13,9 @@ import { OutlineItem } from "../types";
 
 export interface EditorHandle {
   getMarkdown: () => string;
+  getHTML: () => string;
   setMarkdown: (content: string) => void;
+  insertText: (text: string) => void;
   focus: () => void;
   scrollToHeading: (pos: number) => void;
 }
@@ -97,9 +99,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         // @ts-expect-error tiptap-markdown storage type
         return editor.storage.markdown.getMarkdown() as string;
       },
+      getHTML: () => {
+        if (!editor) return "";
+        return editor.getHTML();
+      },
       setMarkdown: (content: string) => {
         if (!editor) return;
         editor.commands.setContent(content);
+      },
+      insertText: (text: string) => {
+        if (!editor) return;
+        editor.commands.insertContent(text);
       },
       focus: () => {
         editor?.commands.focus();

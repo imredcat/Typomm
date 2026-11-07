@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { TyporaTheme } from "../types";
 import {
   FilePlus,
@@ -9,6 +9,11 @@ import {
   Settings,
   Eye,
   Palette,
+  BookOpen,
+  FileCode,
+  Download,
+  Copy,
+  ChevronDown,
 } from "lucide-react";
 
 interface ToolbarProps {
@@ -25,6 +30,9 @@ interface ToolbarProps {
   onToggleOutline: () => void;
   onThemeSelect: (theme: TyporaTheme) => void;
   onOpenSettings: () => void;
+  onOpenCheatsheet: () => void;
+  onExportHtmlFile: () => void;
+  onCopyHtmlCode: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -41,7 +49,31 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onToggleOutline,
   onThemeSelect,
   onOpenSettings,
+  onOpenCheatsheet,
+  onExportHtmlFile,
+  onCopyHtmlCode,
 }) => {
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        exportMenuRef.current &&
+        !exportMenuRef.current.contains(e.target as Node)
+      ) {
+        setIsExportMenuOpen(false);
+      }
+    };
+    if (isExportMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isExportMenuOpen]);
+
   return (
     <header className="typora-toolbar" data-tauri-drag-region>
       {/* macOS Traffic Lights Spacer */}
@@ -82,6 +114,63 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       </div>
 
       <div className="toolbar-actions right">
+        {/* Markdown Cheatsheet Button */}
+        <button
+          className="toolbar-btn text-btn"
+          onClick={onOpenCheatsheet}
+          title="마크다운 문법 치트시트"
+        >
+          <BookOpen size={14} />
+          <span>치트시트</span>
+        </button>
+
+        {/* HTML Export Dropdown */}
+        <div className="export-dropdown-wrapper" ref={exportMenuRef}>
+          <button
+            className={`toolbar-btn text-btn ${isExportMenuOpen ? "active" : ""}`}
+            onClick={() => setIsExportMenuOpen((prev) => !prev)}
+            title="HTML 변환 및 내보내기"
+          >
+            <FileCode size={14} />
+            <span>HTML 변환</span>
+            <ChevronDown size={12} className="chevron-icon" />
+          </button>
+
+          {isExportMenuOpen && (
+            <div className="export-menu-popup">
+              <button
+                className="export-menu-item"
+                onClick={() => {
+                  setIsExportMenuOpen(false);
+                  onExportHtmlFile();
+                }}
+              >
+                <Download size={14} />
+                <div className="export-item-text">
+                  <span className="export-item-title">HTML 파일로 저장...</span>
+                  <span className="export-item-desc">독립 실행 가능한 단독 .html 파일로 내보냅니다.</span>
+                </div>
+              </button>
+
+              <button
+                className="export-menu-item"
+                onClick={() => {
+                  setIsExportMenuOpen(false);
+                  onCopyHtmlCode();
+                }}
+              >
+                <Copy size={14} />
+                <div className="export-item-text">
+                  <span className="export-item-title">HTML 코드 복사</span>
+                  <span className="export-item-desc">본문 HTML 코드를 클립보드에 복사합니다.</span>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
+
+        <span className="toolbar-separator" />
+
         {/* Quick Theme Selector */}
         <div className="theme-selector-dropdown">
           <Palette size={14} className="dropdown-icon" />

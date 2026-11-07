@@ -968,3 +968,335 @@ input:checked + .slider:before {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
 }
+
+
+/* ========================================================
+   HTML Export Menu Dropdown
+   ======================================================== */
+.export-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.export-menu-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 250px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  padding: 6px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: fadeIn 0.12s ease-out;
+}
+
+.export-menu-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-primary);
+  transition: background-color 0.12s ease;
+}
+
+.export-menu-item:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.export-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.export-item-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.export-item-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.toolbar-btn.text-btn {
+  padding: 0 8px;
+  font-size: 12px;
+  gap: 5px;
+}
+
+.chevron-icon {
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+/* ========================================================
+   Markdown Cheatsheet Modal
+   ======================================================== */
+.cheatsheet-modal {
+  width: 760px;
+  max-width: 92vw;
+  height: 82vh;
+  max-height: 720px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: popIn 0.15s ease-out;
+}
+
+.modal-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-icon-accent {
+  color: var(--accent-color);
+}
+
+.cheatsheet-controls {
+  padding: 14px 20px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.cheatsheet-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  padding: 6px 12px;
+  transition: border-color 0.15s ease;
+}
+
+.cheatsheet-search-box:focus-within {
+  border-color: var(--accent-color);
+}
+
+.cheatsheet-search-box .search-icon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.cheatsheet-search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.search-clear-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+}
+
+.cheatsheet-category-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cheatsheet-category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.category-tab-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+
+.category-tab-btn:hover {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.category-tab-btn.active {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border-color: var(--accent-color);
+  font-weight: 500;
+}
+
+.cheatsheet-content-scroll {
+  flex: 1;
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.cheatsheet-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.cheatsheet-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 680px) {
+  .cheatsheet-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cheatsheet-card {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s ease, transform 0.12s ease;
+}
+
+.cheatsheet-card:hover {
+  border-color: var(--border-subtle);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.card-category-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background-color: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+.card-syntax {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+
+.card-syntax pre {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11px;
+  color: var(--code-color);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.card-preview-text {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px 9px;
+  font-size: 11px;
+  border-radius: 5px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  flex: 1;
+}
+
+.card-action-btn:hover {
+  background-color: var(--bg-primary);
+  border-color: var(--border-subtle);
+}
+
+.card-action-btn.insert-btn {
+  background-color: var(--bg-primary);
+  font-weight: 500;
+}
+
+.card-action-btn.insert-btn:hover {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border-color: var(--accent-color);
+}
+
+.card-action-btn.copy-btn.copied {
+  background-color: #1a7f37;
+  color: #ffffff;
+  border-color: #1a7f37;
+}
+
+.cheatsheet-footer {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+}
+
+.cheatsheet-tip {
+  font-size: 11px;
+  color: var(--text-muted);
+}
