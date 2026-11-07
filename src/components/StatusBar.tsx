@@ -5,7 +5,9 @@ interface StatusBarProps {
   chars: number;
   isDirty: boolean;
   isSourceMode: boolean;
+  typewriterMode: boolean;
   filePath: string | null;
+  onToggleTypewriter?: () => void;
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
@@ -13,7 +15,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   chars,
   isDirty,
   isSourceMode,
+  typewriterMode,
   filePath,
+  onToggleTypewriter,
 }) => {
   const readingTime = Math.max(1, Math.ceil(words / 200));
 
@@ -23,6 +27,18 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         <span className="status-tag">
           {isSourceMode ? "소스 코드 모드" : "실시간 위지윅 모드"}
         </span>
+        {typewriterMode && (
+          <>
+            <span className="status-divider">|</span>
+            <button
+              className="status-typewriter-pill"
+              onClick={onToggleTypewriter}
+              title="타자기 모드 켜짐 (클릭하여 끄기 / F9)"
+            >
+              타자기 모드 ON
+            </button>
+          </>
+        )}
         <span className="status-divider">|</span>
         <span className="status-path" title={filePath || "저장되지 않음"}>
           {filePath ? filePath : "새 문서 (저장되지 않음)"}

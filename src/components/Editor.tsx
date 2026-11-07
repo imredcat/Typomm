@@ -1,4 +1,4 @@
-import { useEffect, forwardRef, useImperativeHandle } from "react";
+import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
@@ -22,13 +22,53 @@ export interface EditorHandle {
 
 interface EditorProps {
   initialContent: string;
+  typewriterMode?: boolean;
   onChange: (markdown: string) => void;
   onOutlineUpdate: (outline: OutlineItem[]) => void;
   onStatsUpdate: (stats: { words: number; chars: number }) => void;
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(
-  ({ initialContent, onChange, onOutlineUpdate, onStatsUpdate }, ref) => {
+  ({ initialContent, typewriterMode = false, onChange, onOutlineUpdate, onStatsUpdate }, ref) => {
+    const typewriterRef = useRef(typewriterMode);
+    const rafIdRef = useRef<number | null>(null);
+
+    const scrollTypewriterCursor = useCallback((currentEditor: ReturnType<typeof useEditor>) => {
+      if (!typewriterRef.current || !currentEditor || !currentEditor.view) return;
+      if (!currentEditor.isFocused) return;
+
+      try {
+        const { from } = currentEditor.state.selection;
+        const coords = currentEditor.view.coordsAtPos(from);
+        const scrollContainer = currentEditor.view.dom.closest(".editor-viewport") as HTMLElement | null;
+        if (!scrollContainer) return;
+
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const targetY = containerRect.top + containerRect.height * 0.45;
+        const delta = coords.top - targetY;
+
+        if (Math.abs(delta) > 4) {
+          scrollContainer.scrollTop += delta;
+        }
+      } catch {
+        // Coords might be temporarily unavailable during DOM mutations
+      }
+    }, []);
+
+    const scheduleTypewriterScroll = useCallback(
+      (currentEditor: ReturnType<typeof useEditor>) => {
+        if (!typewriterRef.current || !currentEditor) return;
+        if (rafIdRef.current !== null) {
+          cancelAnimationFrame(rafIdRef.current);
+        }
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null;
+          scrollTypewriterCursor(currentEditor);
+        });
+      },
+      [scrollTypewriterCursor]
+    );
+
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
@@ -90,8 +130,21 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
           }
         });
         onOutlineUpdate(items);
+
+        // Typewriter Mode scroll
+        scheduleTypewriterScroll(currentEditor);
+      },
+      onSelectionUpdate: ({ editor: currentEditor }) => {
+        scheduleTypewriterScroll(currentEditor);
       },
     });
+
+    useEffect(() => {
+      typewriterRef.current = typewriterMode;
+      if (typewriterMode && editor) {
+        scheduleTypewriterScroll(editor);
+      }
+    }, [typewriterMode, editor, scheduleTypewriterScroll]);
 
     useImperativeHandle(ref, () => ({
       getMarkdown: () => {

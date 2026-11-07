@@ -356,22 +356,33 @@ body, html {
   justify-content: center;
   background-color: var(--bg-primary);
   padding: 40px 32px 120px 32px;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.2s ease, padding 0.18s ease;
+}
+
+/* Typewriter Mode: Generous top & bottom scroll cushions for caret centering */
+.editor-viewport.typewriter-mode {
+  padding-top: 42vh;
+  padding-bottom: 55vh;
 }
 
 /* Max Width Variants */
+.width-narrow .editor-wrapper,
 .width-narrow .editor-container,
 .width-narrow .source-mode-container { max-width: 720px; }
 
+.width-default .editor-wrapper,
 .width-default .editor-container,
 .width-default .source-mode-container { max-width: 860px; }
 
+.width-wide .editor-wrapper,
 .width-wide .editor-container,
 .width-wide .source-mode-container { max-width: 1080px; }
 
+.width-full .editor-wrapper,
 .width-full .editor-container,
 .width-full .source-mode-container { max-width: 100%; }
 
+.editor-wrapper,
 .editor-container {
   width: 100%;
 }
@@ -379,12 +390,15 @@ body, html {
 /* Source Code Mode */
 .source-mode-container {
   width: 100%;
-  height: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .source-textarea {
   width: 100%;
-  height: 100%;
+  min-height: 400px;
+  height: auto;
   border: none;
   outline: none;
   resize: none;
@@ -393,6 +407,7 @@ body, html {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 15px;
   line-height: 1.6;
+  overflow: hidden;
 }
 
 /* ----------------- Typora Content Typography ----------------- */
@@ -560,6 +575,26 @@ body, html {
 .status-tag {
   color: var(--accent-color);
   font-weight: 600;
+}
+
+.status-typewriter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background-color: var(--accent-color);
+  color: var(--btn-accent-text, #ffffff);
+  font-size: 10px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  line-height: 1.4;
+  transition: opacity 0.12s ease;
+}
+
+.status-typewriter-pill:hover {
+  opacity: 0.85;
 }
 
 .status-path {

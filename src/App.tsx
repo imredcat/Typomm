@@ -402,6 +402,7 @@ export default function App() {
             textarea.focus();
             const newPos = start + syntax.length + 1;
             textarea.setSelectionRange(newPos, newPos);
+            scheduleSourceTypewriterScroll();
           }, 10);
         } else {
           setTabs((prev) =>
@@ -420,7 +421,46 @@ export default function App() {
     [activeTab]
   );
 
-  // Keyboard Shortcuts (Cmd/Ctrl + S, O, N, T, W, /, ,)
+  // Source Code Mode Typewriter Centering
+  const scheduleSourceTypewriterScroll = useCallback(() => {
+    if (!settings.typewriterMode) return;
+    requestAnimationFrame(() => {
+      const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
+      const viewport = document.querySelector<HTMLElement>(".editor-viewport");
+      if (!textarea || !viewport) return;
+
+      // Ensure textarea accommodates full content height
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.max(textarea.scrollHeight, 400)}px`;
+
+      const selectionStart = textarea.selectionStart;
+      const textBefore = textarea.value.substring(0, selectionStart);
+      const lineIndex = textBefore.split("\n").length - 1;
+
+      const computed = window.getComputedStyle(textarea);
+      const lineHeight = parseFloat(computed.lineHeight) || (settings.fontSize * settings.lineHeight);
+
+      const lineTopInTextarea = lineIndex * lineHeight;
+      const textareaRect = textarea.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+
+      const lineClientY = textareaRect.top + lineTopInTextarea;
+      const targetY = viewportRect.top + viewportRect.height * 0.45;
+      const delta = lineClientY - targetY;
+
+      if (Math.abs(delta) > 4) {
+        viewport.scrollTop += delta;
+      }
+    });
+  }, [settings.typewriterMode, settings.fontSize, settings.lineHeight]);
+
+  useEffect(() => {
+    if (activeTab.isSourceMode) {
+      scheduleSourceTypewriterScroll();
+    }
+  }, [activeTab.isSourceMode, settings.typewriterMode, scheduleSourceTypewriterScroll]);
+
+  // Keyboard Shortcuts (Cmd/Ctrl + S, O, N, T, W, /, ,, F9/Cmd+Alt+T)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMeta = e.metaKey || e.ctrlKey;
@@ -434,7 +474,7 @@ export default function App() {
       } else if (isMeta && e.key.toLowerCase() === "o") {
         e.preventDefault();
         handleOpen();
-      } else if (isMeta && (e.key.toLowerCase() === "n" || e.key.toLowerCase() === "t")) {
+      } else if (isMeta && (e.key.toLowerCase() === "n" || (e.key.toLowerCase() === "t" && !e.altKey))) {
         e.preventDefault();
         handleNewTab();
       } else if (isMeta && e.key.toLowerCase() === "w") {
@@ -446,12 +486,15 @@ export default function App() {
       } else if (isMeta && e.key === ",") {
         e.preventDefault();
         setIsSettingsOpen((prev) => !prev);
+      } else if (e.key === "F9" || (isMeta && e.altKey && e.key.toLowerCase() === "t")) {
+        e.preventDefault();
+        updateSettings({ typewriterMode: !settings.typewriterMode });
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleSave, handleSaveAs, handleOpen, handleNewTab, handleCloseTab, activeTabId, handleToggleSourceMode]);
+  }, [handleSave, handleSaveAs, handleOpen, handleNewTab, handleCloseTab, activeTabId, handleToggleSourceMode, updateSettings, settings.typewriterMode]);
 
   const handleSourceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
@@ -538,14 +581,24 @@ export default function App() {
           />
         )}
 
-        <main className={`editor-viewport width-${settings.contentWidth}`}>
+        <main
+          className={`editor-viewport width-${settings.contentWidth} ${
+            settings.typewriterMode ? "typewriter-mode" : ""
+          }`}
+        >
           {activeTab.isSourceMode && (
             <div className="source-mode-container">
               <textarea
                 className="source-textarea"
                 style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineHeight }}
                 value={activeTab.content}
-                onChange={handleSourceChange}
+                onChange={(e) => {
+                  handleSourceChange(e);
+                  scheduleSourceTypewriterScroll();
+                }}
+                onSelect={scheduleSourceTypewriterScroll}
+                onKeyUp={scheduleSourceTypewriterScroll}
+                onClick={scheduleSourceTypewriterScroll}
                 placeholder="마크다운 원본 내용을 입력하세요..."
                 autoFocus
               />
@@ -562,6 +615,7 @@ export default function App() {
             <Editor
               ref={editorRef}
               initialContent={activeTab.content}
+              typewriterMode={settings.typewriterMode}
               onChange={(md) => {
                 setTabs((prev) =>
                   prev.map((t) => (t.id === activeTab.id ? { ...t, content: md, isDirty: true } : t))
@@ -586,6 +640,8 @@ export default function App() {
         chars={stats.chars}
         isDirty={activeTab.isDirty}
         isSourceMode={activeTab.isSourceMode}
+        typewriterMode={settings.typewriterMode}
+        onToggleTypewriter={() => updateSettings({ typewriterMode: !settings.typewriterMode })}
         filePath={activeTab.path}
       />
 
