@@ -4,7 +4,7 @@
 > *Ultra-fast, lightweight live-preview Markdown editor built with Tauri v2, Rust, and React.*
 
 <p align="center">
-  <img src="./public/tauri.svg" width="80" alt="Typomm Logo" />
+  <img src="./app-icon.png" width="128" alt="Typomm Logo" />
 </p>
 
 <p align="center">
