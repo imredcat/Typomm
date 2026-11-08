@@ -363,6 +363,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   고정폭
                 </button>
+                <button
+                  className={`option-btn ${settings.fontFamily === "typewriter" ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ fontFamily: "typewriter" })}
+                  title="무료 타자기 글꼴 (Special Elite & Courier Prime)"
+                >
+                  타자기
+                </button>
               </div>
             </div>
 

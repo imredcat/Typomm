@@ -39,7 +39,7 @@ export interface OutlineItem {
 
 export interface AppSettings {
   theme: TyporaTheme;
-  fontFamily: "sans" | "serif" | "mono";
+  fontFamily: "sans" | "serif" | "mono" | "typewriter";
   fontSize: number; // 14, 16, 18, 20
   contentWidth: "narrow" | "default" | "wide" | "full"; // 720px, 860px, 1080px, 100%
   lineHeight: number; // 1.5, 1.7, 1.9

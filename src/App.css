@@ -109,6 +109,10 @@ body, html {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Nanum Gothic Coding", monospace;
 }
 
+.font-typewriter {
+  font-family: "Special Elite", "Courier Prime", "American Typewriter", "Courier New", Courier, "Nanum Myeongjo", "Batang", monospace;
+}
+
 .app-root {
   display: flex;
   flex-direction: column;
@@ -658,12 +662,13 @@ body, html {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.45);
+  background-color: rgba(0, 0, 0, 0.52);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
-  backdrop-filter: blur(2px);
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   animation: fadeIn 0.15s ease-out;
 }
 
@@ -1744,6 +1749,110 @@ input:checked + .slider:before {
 .theme-custom .typora-editor-content,
 .theme-custom .source-textarea {
   color: var(--custom-text-color, #22262c);
+}
+
+.theme-custom .outline-sidebar,
+.theme-custom .cheatsheet-sidebar {
+  background-color: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+.theme-custom .cheatsheet-header,
+.theme-custom .cheatsheet-filter-area {
+  background-color: rgba(248, 250, 252, 0.85);
+}
+
+.theme-custom .sidebar-cheatsheet-card {
+  background-color: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Custom Theme Settings Modal: Never transparent, solid clean card */
+.theme-custom .settings-modal {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid rgba(0, 0, 0, 0.14) !important;
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.35) !important;
+}
+
+.theme-custom .settings-modal .modal-header,
+.theme-custom .settings-modal .modal-footer {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+.theme-custom .settings-modal .modal-title,
+.theme-custom .settings-modal .row-label,
+.theme-custom .settings-modal .compact-label,
+.theme-custom .settings-modal .theme-chip-label,
+.theme-custom .settings-modal .opacity-val {
+  color: #1e293b !important;
+}
+
+.theme-custom .settings-modal .custom-theme-panel {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+.theme-custom .settings-modal .option-btn {
+  background-color: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.theme-custom .settings-modal .option-btn:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.theme-custom .settings-modal .option-btn.active {
+  background-color: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
+
+.theme-custom .settings-modal .sound-chip {
+  background-color: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.theme-custom .settings-modal .sound-chip:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.theme-custom .settings-modal .sound-chip.selected {
+  background-color: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.theme-custom .settings-modal .theme-chip {
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.theme-custom .settings-modal .theme-chip.selected {
+  background-color: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.theme-custom .settings-modal .icon-btn {
+  color: #64748b;
+}
+
+.theme-custom .settings-modal .icon-btn:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.theme-custom .settings-modal .settings-section {
+  border-bottom: 1px solid #f1f5f9;
 }
 
 /* ----------------- Settings Modal: Minimal & Compact ----------------- */
