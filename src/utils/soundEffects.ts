@@ -129,9 +129,20 @@ export function playTypingSound(profile: TypingSoundProfile, key?: string): void
 
   switch (profile) {
     case "vintage-olympia": {
-      triggerFilteredNoise(ctx, now, "bandpass", 1850 * pitchMod, 2.4, 0.36, 0.032);
-      triggerFilteredNoise(ctx, now + 0.003, "lowpass", 420 * pitchMod, 1.5, 0.28, 0.045);
-      triggerTone(ctx, now, "triangle", 320 * pitchMod, 95, 0.22, 0.035);
+      // 1950s Mechanical Typewriter (Based on real ASMR 1950s typewriter audio)
+      if (isSpace) {
+        // Spacebar: Heavy carriage ratchet advance without typebar strike
+        triggerFilteredNoise(ctx, now, "bandpass", 950 * pitchMod, 2.2, 0.32, 0.038);
+        triggerTone(ctx, now, "triangle", 140 * pitchMod, 50, 0.24, 0.042);
+      } else {
+        // 1. Sharp metallic typebar impact on paper/platen (1600Hz~2200Hz narrow bandpass)
+        triggerFilteredNoise(ctx, now, "bandpass", 1950 * pitchMod, 3.8, 0.45, 0.026);
+        // 2. Heavy steel platen roller body thud (180Hz -> 55Hz pitch drop)
+        triggerTone(ctx, now, "triangle", 185 * pitchMod, 55, 0.32, 0.036);
+        // 3. Crisp mechanical key-lever click & escapement rebound
+        triggerFilteredNoise(ctx, now + 0.008, "highpass", 3800 * pitchMod, 1.8, 0.22, 0.02);
+        triggerTone(ctx, now + 0.004, "sine", 850 * pitchMod, 380, 0.16, 0.018);
+      }
       break;
     }
     case "vintage-hermes": {
@@ -169,17 +180,21 @@ export function playTypingSound(profile: TypingSoundProfile, key?: string): void
       break;
     }
     case "topre-raindrop": {
-      triggerTone(ctx, now, "sine", 290 * pitchMod, 145, 0.26, 0.042);
-      triggerTone(ctx, now + 0.005, "sine", 520 * pitchMod, 340, 0.12, 0.028);
-      triggerFilteredNoise(ctx, now, "bandpass", 780 * pitchMod, 4.0, 0.15, 0.032);
+      // Crystal-clear water droplet ("맑고 영롱한 물방울 소리")
+      const dropStart = (1350 + Math.random() * 220) * pitchMod;
+      const dropEnd = dropStart * 1.72; // upward chirping waterdrop glide
+      triggerTone(ctx, now, "sine", dropStart, dropEnd, 0.32, 0.052);
+      triggerTone(ctx, now + 0.003, "sine", dropStart * 1.98, dropEnd * 1.95, 0.09, 0.04);
+      triggerTone(ctx, now + 0.001, "triangle", 210 * pitchMod, 120, 0.14, 0.028);
       break;
     }
     case "omm-waterdrop": {
-      const pentatonic = [523.25, 587.33, 659.25, 783.99, 880.0, 1046.5];
+      // Pure harmonic droplet melody (Pentatonic, pure sine overtones)
+      const pentatonic = [587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.5];
       const baseNote =
         pentatonic[Math.floor(Math.random() * pentatonic.length)] * (isSpace ? 0.75 : 1);
-      triggerTone(ctx, now, "sine", baseNote * 0.92, baseNote, 0.15, 0.095);
-      triggerTone(ctx, now, "sine", baseNote * 2, baseNote * 2.02, 0.045, 0.055);
+      triggerTone(ctx, now, "sine", baseNote * 0.94, baseNote * 1.25, 0.22, 0.09);
+      triggerTone(ctx, now + 0.002, "sine", baseNote * 2, baseNote * 2.05, 0.06, 0.06);
       break;
     }
     case "wood-keycap": {

@@ -93,23 +93,43 @@ body, html {
   height: 100%;
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", Helvetica, Arial, sans-serif;
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
 }
 
-.font-sans {
+/* UI Elements: Always retain standard macOS system font */
+.typora-toolbar,
+.typora-tabbar,
+.typora-statusbar,
+.settings-modal,
+.cheatsheet-sidebar,
+.outline-sidebar {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", Helvetica, Arial, sans-serif !important;
+}
+
+/* Editor Specific Fonts (Only applies to Editor viewport & document content) */
+.editor-viewport.font-sans,
+.editor-viewport.font-sans .typora-editor-content,
+.editor-viewport.font-sans .source-textarea {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", Helvetica, Arial, sans-serif;
 }
 
-.font-serif {
+.editor-viewport.font-serif,
+.editor-viewport.font-serif .typora-editor-content,
+.editor-viewport.font-serif .source-textarea {
   font-family: Georgia, Cambria, "Apple SD Gothic Neo", "Batang", "Noto Serif KR", serif;
 }
 
-.font-mono {
+.editor-viewport.font-mono,
+.editor-viewport.font-mono .typora-editor-content,
+.editor-viewport.font-mono .source-textarea {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Nanum Gothic Coding", monospace;
 }
 
-.font-typewriter {
+.editor-viewport.font-typewriter,
+.editor-viewport.font-typewriter .typora-editor-content,
+.editor-viewport.font-typewriter .source-textarea {
   font-family: "Special Elite", "Courier Prime", "American Typewriter", "Courier New", Courier, "Nanum Myeongjo", "Batang", monospace;
 }
 
@@ -120,6 +140,7 @@ body, html {
   width: 100vw;
   background-color: var(--bg-primary);
   color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", Helvetica, Arial, sans-serif;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -937,25 +958,27 @@ input:checked + .slider:before {
   background-color: var(--accent-hover);
 }
 
-/* ----------------- Typora Tab Bar ----------------- */
+/* ----------------- Typora Tab Bar (Authentic Native Tab Structure) ----------------- */
 .typora-tabbar {
-  height: 34px;
+  height: 35px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
-  padding: 0 8px;
+  padding: 0 8px 0 6px;
   user-select: none;
   z-index: 9;
+  position: relative;
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 .tab-list {
   display: flex;
-  align-items: center;
-  gap: 3px;
+  align-items: flex-end;
+  gap: 2px;
   overflow-x: auto;
   flex: 1;
+  height: 100%;
   scrollbar-width: none; /* Hide scrollbar Firefox */
 }
 
@@ -967,18 +990,20 @@ input:checked + .slider:before {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 27px;
-  max-width: 210px;
-  min-width: 110px;
-  padding: 0 8px 0 10px;
+  height: 31px;
+  max-width: 220px;
+  min-width: 120px;
+  padding: 0 10px 0 12px;
   background-color: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: background-color 0.12s ease, color 0.12s ease;
   position: relative;
+  margin-bottom: -1px;
 }
 
 .tab-item:hover {
@@ -989,10 +1014,10 @@ input:checked + .slider:before {
 .tab-item.active {
   background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
-  border-bottom-color: transparent;
+  border-bottom: 1px solid var(--bg-primary);
   color: var(--text-primary);
-  font-weight: 700;
-  box-shadow: 0 -2px 0 0 var(--accent-color) inset, 0 2px 6px rgba(0, 0, 0, 0.08);
+  font-weight: 600;
+  z-index: 2;
 }
 
 .tab-icon {
@@ -1001,12 +1026,12 @@ input:checked + .slider:before {
 }
 
 .tab-item.active .tab-icon {
-  color: var(--accent-color);
+  color: var(--text-primary);
 }
 
 .tab-item.active .tab-title {
   color: var(--text-primary);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .tab-title {
@@ -1476,21 +1501,21 @@ input:checked + .slider:before {
 }
 
 .theme-night .tab-item.active {
-  background-color: #3b424a;
+  background-color: #363b40;
   border: 1px solid #525c68;
-  border-bottom-color: transparent;
+  border-bottom: 1px solid #363b40;
   color: #ffffff;
-  font-weight: 700;
-  box-shadow: 0 -2px 0 0 #00e676 inset, 0 2px 8px rgba(0, 0, 0, 0.35);
+  font-weight: 600;
+  z-index: 2;
 }
 
 .theme-night .tab-item.active .tab-icon {
-  color: #00e676;
+  color: #f1f5f9;
 }
 
 .theme-night .tab-item.active .tab-title {
   color: #ffffff;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .theme-night .tab-close-btn:hover {
@@ -1744,13 +1769,62 @@ input:checked + .slider:before {
   right: 1px;
 }
 
-/* Sound Menu Popup */
-.sound-menu-popup {
-  width: 280px;
-  max-height: 420px;
+/* Sound Menu Popup: No scroll, compact 2-column grid */
+.compact-sound-popup {
+  width: 250px;
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 6px;
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+  z-index: 100;
   display: flex;
   flex-direction: column;
-  padding: 6px;
+  gap: 4px;
+}
+
+.sound-grid-item {
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 5px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  text-align: center;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all 0.12s ease;
+}
+
+.sound-grid-item:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.sound-grid-item.selected {
+  background-color: var(--bg-tertiary);
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.sound-grid-item.mute-item {
+  width: 100%;
+}
+
+.sound-grid-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
 }
 
 .popup-section-title {
@@ -1808,6 +1882,7 @@ input:checked + .slider:before {
   color: #475569;
   background-color: rgba(255, 255, 255, 0.45);
   border: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: none;
 }
 
 .theme-custom .tab-item:hover {
@@ -1817,20 +1892,20 @@ input:checked + .slider:before {
 
 .theme-custom .tab-item.active {
   background-color: #ffffff;
-  border: 1px solid rgba(59, 130, 246, 0.45);
-  border-bottom-color: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid #ffffff;
   color: #0f172a;
-  font-weight: 700;
-  box-shadow: 0 -2px 0 0 #3b82f6 inset, 0 3px 8px rgba(0, 0, 0, 0.1);
+  font-weight: 600;
+  z-index: 2;
 }
 
 .theme-custom .tab-item.active .tab-icon {
-  color: #3b82f6;
+  color: #0f172a;
 }
 
 .theme-custom .tab-item.active .tab-title {
   color: #0f172a;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .theme-custom .editor-viewport {

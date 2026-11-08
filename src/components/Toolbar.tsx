@@ -185,20 +185,27 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           </button>
 
           {isSoundMenuOpen && (
-            <div className="export-menu-popup sound-menu-popup">
-              <div className="sound-menu-list">
-                {TYPING_SOUND_OPTIONS.map((opt) => (
+            <div className="sound-menu-popup compact-sound-popup">
+              <button
+                className={`sound-grid-item mute-item ${typingSound === "off" ? "selected" : ""}`}
+                onClick={() => {
+                  onSelectTypingSound("off");
+                }}
+              >
+                <span>무음</span>
+              </button>
+
+              <div className="sound-grid-container">
+                {TYPING_SOUND_OPTIONS.filter((opt) => opt.id !== "off").map((opt) => (
                   <button
                     key={opt.id}
-                    className={`export-menu-item sound-item ${typingSound === opt.id ? "selected" : ""}`}
+                    className={`sound-grid-item ${typingSound === opt.id ? "selected" : ""}`}
                     onClick={() => {
                       onSelectTypingSound(opt.id);
-                      if (opt.id !== "off") {
-                        playTypingSound(opt.id);
-                      }
+                      playTypingSound(opt.id);
                     }}
                   >
-                    <span className="export-item-title">{opt.name}</span>
+                    <span>{opt.name}</span>
                   </button>
                 ))}
               </div>

@@ -709,7 +709,7 @@ export default function App() {
 
   return (
     <div
-      className={`app-root theme-${settings.theme} font-${settings.fontFamily}`}
+      className={`app-root theme-${settings.theme}`}
       style={
         {
           "--editor-font-size": `${settings.fontSize}px`,
@@ -777,7 +777,7 @@ export default function App() {
         )}
 
         <main
-          className={`editor-viewport width-${settings.contentWidth} ${
+          className={`editor-viewport width-${settings.contentWidth} font-${settings.fontFamily} ${
             settings.typewriterMode ? `typewriter-mode typewriter-${settings.typewriterStyle}` : ""
           }`}
         >
