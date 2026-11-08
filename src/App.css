@@ -138,8 +138,9 @@ body, html {
 }
 
 .traffic-light-spacer {
-  width: 70px;
+  width: 76px;
   height: 100%;
+  pointer-events: none;
 }
 
 .toolbar-actions {
@@ -178,12 +179,13 @@ body, html {
 }
 
 .toolbar-btn.active {
-  background-color: var(--accent-color);
-  color: var(--btn-accent-text, #ffffff);
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
 }
 
 .toolbar-btn.dirty {
-  color: var(--accent-color);
+  color: var(--text-primary);
   font-weight: 700;
 }
 
@@ -375,8 +377,8 @@ body, html {
   display: flex;
   justify-content: center;
   background-color: var(--bg-primary);
-  padding: 40px 32px 120px 32px;
-  transition: background-color 0.2s ease, padding 0.18s ease;
+  padding: 0;
+  transition: background-color 0.2s ease;
   contain: style layout;
   will-change: scroll-position;
 }
@@ -399,8 +401,13 @@ body, html {
   will-change: transform;
 }
 
-.editor-viewport.typewriter-mode .editor-container {
-  padding: 40px 32px 120px 32px;
+/* 안쪽 여백: 타자기 모드 ON/OFF 및 모든 상태에서 100% 동일하게 유지 */
+.editor-container,
+.source-mode-container,
+.editor-viewport.typewriter-mode .editor-container,
+.editor-viewport.typewriter-mode .source-mode-container {
+  padding: 40px 36px 120px 36px;
+  box-sizing: border-box;
 }
 
 /* Max Width Variants */
@@ -1714,12 +1721,12 @@ input:checked + .slider:before {
 .toolbar-btn.icon-only.no-bg-toggle.mode-off,
 .toolbar-btn.icon-only.no-bg-toggle.sound-off {
   color: var(--text-muted) !important;
-  opacity: 0.62;
+  opacity: 0.55;
 }
 
 .toolbar-btn.icon-only.no-bg-toggle.mode-active,
 .toolbar-btn.icon-only.no-bg-toggle.sound-active {
-  color: var(--accent-color) !important;
+  color: var(--text-primary) !important;
   opacity: 1;
 }
 
@@ -1730,7 +1737,7 @@ input:checked + .slider:before {
 
 .toolbar-btn.icon-only.no-bg-toggle .mini-mode-badge {
   background: transparent;
-  color: var(--accent-color);
+  color: var(--text-primary);
   font-size: 8.5px;
   font-weight: 800;
   bottom: 0px;
@@ -1839,6 +1846,11 @@ input:checked + .slider:before {
   border: 1px solid rgba(255, 255, 255, 0.32);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+}
+
+.theme-custom .editor-viewport:not(.typewriter-mode) .editor-wrapper,
+.theme-custom .editor-viewport:not(.typewriter-mode) .source-mode-container {
+  margin: 32px auto 60px auto;
 }
 
 .theme-custom .typora-editor-content,
