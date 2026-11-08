@@ -56,7 +56,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                 <button
                   className="tab-close-btn dirty-indicator"
                   onClick={(e) => onCloseTab(tab.id, e)}
-                  title="저장되지 않은 변경사항 (클릭하여 닫기)"
+                  title="탭 닫기 (Cmd+W)"
                 >
                   <span className="dot" />
                   <X size={12} className="close-x" />
@@ -75,7 +75,7 @@ export const TabBar: React.FC<TabBarProps> = ({
         })}
       </div>
 
-      <button className="new-tab-btn" onClick={onNewTab} title="새 문서 탭 (Cmd+T / Cmd+N)">
+      <button className="new-tab-btn" onClick={onNewTab} title="새 탭 (Cmd+T)">
         <Plus size={14} />
       </button>
     </div>

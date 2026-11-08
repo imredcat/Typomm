@@ -36,7 +36,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
             <button
               className="status-typewriter-pill"
               onClick={onToggleTypewriter}
-              title="클릭하여 타자기 모드 전환 (모드 1 → 모드 2 → 끄기 / F9)"
+              title="타자기 모드 전환 (F9)"
             >
               {typewriterStyle === "horizontal"
                 ? "타자기 1 (커서 정중앙)"

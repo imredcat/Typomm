@@ -229,7 +229,7 @@ export const Cheatsheet: React.FC<CheatsheetProps> = ({ onInsert, onClose }) => 
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           {searchTerm && (
-            <button className="clear-btn" onClick={() => setSearchTerm("")}>
+            <button className="clear-btn" onClick={() => setSearchTerm("")} title="검색어 지우기">
               <X size={13} />
             </button>
           )}
@@ -276,7 +276,7 @@ export const Cheatsheet: React.FC<CheatsheetProps> = ({ onInsert, onClose }) => 
                 <button
                   className="sidebar-action-btn insert"
                   onClick={() => onInsert(item.syntax)}
-                  title="현재 문서 커서 위치에 바로 삽입"
+                  title="본문 삽입"
                 >
                   <Plus size={12} />
                   <span>삽입</span>
@@ -287,7 +287,7 @@ export const Cheatsheet: React.FC<CheatsheetProps> = ({ onInsert, onClose }) => 
                     copiedId === item.id ? "copied" : ""
                   }`}
                   onClick={() => handleCopy(item.id, item.syntax)}
-                  title="마크다운 문법 복사"
+                  title="문법 복사"
                 >
                   {copiedId === item.id ? (
                     <>

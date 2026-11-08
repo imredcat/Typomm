@@ -139,6 +139,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   key={t.id}
                   className={`theme-chip ${settings.theme === t.id ? "selected" : ""}`}
                   onClick={() => onUpdateSettings({ theme: t.id })}
+                  title={`${t.name} 테마`}
                 >
                   <span
                     className="theme-swatch"
@@ -165,7 +166,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="settings-row">
                   <span className="row-label">배경 이미지</span>
                   <div className="color-picker-row">
-                    <button className="option-btn active" onClick={handlePickLocalImage}>
+                    <button className="option-btn active" onClick={handlePickLocalImage} title="배경 이미지 파일 선택">
                       <ImageIcon size={12} style={{ marginRight: 4, verticalAlign: "-1px" }} />
                       파일 선택
                     </button>
@@ -181,6 +182,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         key={preset.name}
                         className={`option-btn ${settings.customBgImage === preset.url ? "active" : ""}`}
                         onClick={() => onUpdateSettings({ customBgImage: preset.url })}
+                        title={`${preset.name} 배경`}
                       >
                         {preset.name}
                       </button>
@@ -196,6 +198,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={settings.customEditorBgColor}
                       onChange={(e) => onUpdateSettings({ customEditorBgColor: e.target.value })}
                       className="color-input-native"
+                      title="용지 색상 직접 선택"
                     />
                     {[
                       { color: "#ffffff", text: "#22262c" },
@@ -216,6 +219,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             customTextColor: chip.text,
                           })
                         }
+                        title={`용지 색상: ${chip.color}`}
                       />
                     ))}
                     <input
@@ -228,7 +232,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onUpdateSettings({ customEditorBgOpacity: Number(e.target.value) / 100 })
                       }
                       className="opacity-range-slider compact-slider"
-                      title={`투명도 ${Math.round(settings.customEditorBgOpacity * 100)}%`}
+                      title={`용지 투명도 ${Math.round(settings.customEditorBgOpacity * 100)}%`}
                     />
                     <span className="opacity-val">
                       {Math.round(settings.customEditorBgOpacity * 100)}%
@@ -244,16 +248,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       value={settings.customTextColor}
                       onChange={(e) => onUpdateSettings({ customTextColor: e.target.value })}
                       className="color-input-native"
+                      title="글자 색상 직접 선택"
                     />
                     <button
                       className={`option-btn ${settings.customTextColor === "#22262c" ? "active" : ""}`}
                       onClick={() => onUpdateSettings({ customTextColor: "#22262c" })}
+                      title="어두운 글자색"
                     >
                       어둡게
                     </button>
                     <button
                       className={`option-btn ${settings.customTextColor === "#f3f4f6" ? "active" : ""}`}
                       onClick={() => onUpdateSettings({ customTextColor: "#f3f4f6" })}
+                      title="밝은 글자색"
                     >
                       밝게
                     </button>
@@ -271,6 +278,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   className={`option-btn ${!settings.typewriterMode ? "active" : ""}`}
                   onClick={() => onUpdateSettings({ typewriterMode: false })}
+                  title="타자기 모드 끄기"
                 >
                   꺼짐
                 </button>
@@ -281,6 +289,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onClick={() =>
                     onUpdateSettings({ typewriterMode: true, typewriterStyle: "horizontal" })
                   }
+                  title="타자기 모드 1 (중앙 고정)"
                 >
                   1. 중앙 고정
                 </button>
@@ -291,6 +300,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onClick={() =>
                     onUpdateSettings({ typewriterMode: true, typewriterStyle: "vertical" })
                   }
+                  title="타자기 모드 2 (60% 줄 고정)"
                 >
                   2. 60% 줄 고정
                 </button>
@@ -303,11 +313,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   className="option-btn preview-bell-btn"
                   onClick={() => playCarriageReturnBell()}
+                  title="차임벨 소리 미리듣기"
                 >
                   <Bell size={12} />
                   <span>띵~</span>
                 </button>
-                <label className="switch">
+                <label className="switch" title="행 끝 차임벨 토글">
                   <input
                     type="checkbox"
                     checked={settings.typewriterBell}
@@ -333,6 +344,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       playTypingSound(opt.id);
                     }
                   }}
+                  title={`${opt.name} 소리`}
                 >
                   {opt.name}
                 </button>
@@ -348,25 +360,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <button
                   className={`option-btn ${settings.fontFamily === "sans" ? "active" : ""}`}
                   onClick={() => onUpdateSettings({ fontFamily: "sans" })}
+                  title="고딕 글꼴"
                 >
                   고딕
                 </button>
                 <button
                   className={`option-btn ${settings.fontFamily === "serif" ? "active" : ""}`}
                   onClick={() => onUpdateSettings({ fontFamily: "serif" })}
+                  title="명조 글꼴"
                 >
                   명조
                 </button>
                 <button
                   className={`option-btn ${settings.fontFamily === "mono" ? "active" : ""}`}
                   onClick={() => onUpdateSettings({ fontFamily: "mono" })}
+                  title="고정폭 글꼴"
                 >
                   고정폭
                 </button>
                 <button
                   className={`option-btn ${settings.fontFamily === "typewriter" ? "active" : ""}`}
                   onClick={() => onUpdateSettings({ fontFamily: "typewriter" })}
-                  title="무료 타자기 글꼴 (Special Elite & Courier Prime)"
+                  title="타자기 글꼴 (Special Elite & Courier Prime)"
                 >
                   타자기
                 </button>
@@ -382,6 +397,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       key={sz}
                       className={`option-btn ${settings.fontSize === sz ? "active" : ""}`}
                       onClick={() => onUpdateSettings({ fontSize: sz })}
+                      title={`글자 크기 ${sz}px`}
                     >
                       {sz}
                     </button>
@@ -393,6 +409,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       key={lh}
                       className={`option-btn ${settings.lineHeight === lh ? "active" : ""}`}
                       onClick={() => onUpdateSettings({ lineHeight: lh })}
+                      title={`줄 간격 ${lh}`}
                     >
                       {lh}
                     </button>
@@ -416,6 +433,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onClick={() =>
                       onUpdateSettings({ contentWidth: w.id as AppSettings["contentWidth"] })
                     }
+                    title={`문서 너비: ${w.label}`}
                   >
                     {w.label}
                   </button>

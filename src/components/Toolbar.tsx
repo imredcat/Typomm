@@ -105,10 +105,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   }, [isExportMenuOpen, isSoundMenuOpen]);
 
   const typewriterTooltip = !typewriterMode
-    ? "타자기 모드 끄기 상태 (클릭: 모드 1 켜기 / F9)"
+    ? "타자기 모드 (꺼짐)"
     : typewriterStyle === "horizontal"
-    ? "타자기 모드 1: 커서 정중앙 & 문장 이동 (클릭: 모드 2 상단 60% 줄 고정으로 전환)"
-    : "타자기 모드 2: 상단 60% 줄 고정 & 차임벨 (클릭: 타자기 모드 끄기)";
+    ? "타자기 모드 1 (중앙 고정)"
+    : "타자기 모드 2 (60% 줄 고정)";
 
   return (
     <header className="typora-toolbar omm-minimal-toolbar" onMouseDown={handleDragWindow}>
@@ -119,7 +119,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           className={`toolbar-btn icon-only ${isOutlineOpen ? "active" : ""}`}
           onClick={onToggleOutline}
-          title="목차 (Outline)"
+          title="목차"
         >
           <ListTree size={15} />
         </button>
@@ -141,15 +141,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               onSave();
             }
           }}
-          title="저장 (Cmd+S / Shift+클릭: 다른 이름으로 저장)"
+          title="문서 저장 (Cmd+S)"
         >
           <Save size={15} />
         </button>
       </div>
 
-      <div className="document-title" onMouseDown={handleDragWindow} title="드래그하여 창 이동">
+      <div className="document-title" onMouseDown={handleDragWindow} title="창 이동 (드래그)">
         <span className="title-text">{fileName}</span>
-        {isDirty && <span className="dirty-badge" title="저장되지 않은 변경사항">•</span>}
+        {isDirty && <span className="dirty-badge" title="저장되지 않음">•</span>}
       </div>
 
       <div className="toolbar-actions right" onMouseDown={handleDragWindow}>
@@ -174,7 +174,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <button
             className={`toolbar-btn icon-only ${typingSound !== "off" ? "active" : ""}`}
             onClick={() => setIsSoundMenuOpen((prev) => !prev)}
-            title="타이핑 사운드 선택 (무음 + 10종 타자 소리)"
+            title="타이핑 소리"
           >
             {typingSound === "off" ? <VolumeX size={15} /> : <Volume2 size={15} />}
           </button>
@@ -205,7 +205,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           className="toolbar-btn icon-only"
           onClick={onCenterWindow}
-          title="창을 모니터 가로 중앙으로 정렬 (margin: 0px auto)"
+          title="창 가로 중앙 정렬"
         >
           <AlignHorizontalSpaceAround size={15} />
         </button>
@@ -226,7 +226,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <button
             className={`toolbar-btn icon-only ${isExportMenuOpen ? "active" : ""}`}
             onClick={() => setIsExportMenuOpen((prev) => !prev)}
-            title="HTML 변환 및 내보내기"
+            title="HTML 내보내기"
           >
             <FileCode size={15} />
           </button>
@@ -268,7 +268,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           className={`toolbar-btn icon-only ${isSourceMode ? "active" : ""}`}
           onClick={onToggleSourceMode}
-          title={isSourceMode ? "위지윅 모드로 전환 (Cmd+/)" : "마크다운 소스 코드 모드 (Cmd+/)"}
+          title={isSourceMode ? "위지윅 편집 모드 (Cmd+/)" : "소스 코드 모드 (Cmd+/)"}
         >
           {isSourceMode ? <Eye size={15} /> : <Code2 size={15} />}
         </button>
@@ -277,7 +277,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         <button
           className="toolbar-btn icon-only"
           onClick={onOpenSettings}
-          title="환경설정 및 테마/배경 설정 (Cmd+,)"
+          title="환경설정 (Cmd+,)"
         >
           <Settings size={15} />
         </button>
