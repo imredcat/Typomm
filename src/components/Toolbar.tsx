@@ -115,7 +115,17 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       {/* macOS Traffic Lights Spacer */}
       <div className="traffic-light-spacer" onMouseDown={handleDragWindow} />
 
-      <div className="toolbar-actions left" onMouseDown={handleDragWindow}>
+      {/* 2. 문서 제목: 최대한 왼쪽으로 정렬 */}
+      <div className="document-title toolbar-title-left" onMouseDown={handleDragWindow} title="창 이동 (드래그)">
+        <span className="title-text">{fileName}</span>
+        {isDirty && <span className="dirty-badge" title="저장되지 않음">•</span>}
+      </div>
+
+      {/* 중앙 빈 공간: 자유로운 창 드래그 영역 */}
+      <div className="toolbar-drag-area" onMouseDown={handleDragWindow} />
+
+      {/* 우측 액션 그룹: 목차, 새 문서, 파일 열기, 저장을 타자기 모드 바로 옆으로 배치 */}
+      <div className="toolbar-actions right" onMouseDown={handleDragWindow}>
         <button
           className={`toolbar-btn icon-only ${isOutlineOpen ? "active" : ""}`}
           onClick={onToggleOutline}
@@ -145,17 +155,12 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         >
           <Save size={15} />
         </button>
-      </div>
 
-      <div className="document-title" onMouseDown={handleDragWindow} title="창 이동 (드래그)">
-        <span className="title-text">{fileName}</span>
-        {isDirty && <span className="dirty-badge" title="저장되지 않음">•</span>}
-      </div>
+        <span className="toolbar-separator" />
 
-      <div className="toolbar-actions right" onMouseDown={handleDragWindow}>
-        {/* Typewriter Mode Quick Cycle (Off -> Mode 1 -> Mode 2) */}
+        {/* Typewriter Mode Quick Cycle (Off -> Mode 1 -> Mode 2) - 배경색 없이 아이콘으로 구분 */}
         <button
-          className={`toolbar-btn icon-only ${typewriterMode ? "active" : ""}`}
+          className={`toolbar-btn icon-only no-bg-toggle ${typewriterMode ? "mode-active" : "mode-off"}`}
           onClick={onCycleTypewriter}
           title={typewriterTooltip}
         >
@@ -169,10 +174,10 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           )}
         </button>
 
-        {/* Typing Sound Selector Dropdown */}
+        {/* Typing Sound Selector Dropdown - 배경색 없이 아이콘으로 구분 */}
         <div className="export-dropdown-wrapper" ref={soundMenuRef}>
           <button
-            className={`toolbar-btn icon-only ${typingSound !== "off" ? "active" : ""}`}
+            className={`toolbar-btn icon-only no-bg-toggle ${typingSound !== "off" ? "sound-active" : "sound-off"}`}
             onClick={() => setIsSoundMenuOpen((prev) => !prev)}
             title="타이핑 소리"
           >

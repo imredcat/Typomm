@@ -164,13 +164,18 @@ fn center_window_horizontally(window: tauri::Window) -> Result<(), String> {
     if let Ok(Some(monitor)) = window.current_monitor() {
         let screen_pos = monitor.position();
         let screen_size = monitor.size();
-        if let (Ok(win_size), Ok(win_pos)) = (window.outer_size(), window.outer_position()) {
+        if let Ok(win_size) = window.outer_size() {
+            // 창의 세로 크기를 모니터 최대 세로 크기로 조정
+            let _ = window.set_size(tauri::Size::Physical(tauri::PhysicalSize {
+                width: win_size.width,
+                height: screen_size.height,
+            }));
+
+            // 가로 중앙 정렬 및 화면 최상단(y) 배치
             let centered_x =
                 screen_pos.x + ((screen_size.width as i32 - win_size.width as i32) / 2);
-            let min_y = screen_pos.y;
-            let max_y = (screen_pos.y + screen_size.height as i32 - win_size.height as i32)
-                .max(min_y);
-            let target_y = win_pos.y.clamp(min_y, max_y);
+            let target_y = screen_pos.y;
+
             window
                 .set_position(tauri::Position::Physical(tauri::PhysicalPosition {
                     x: centered_x,

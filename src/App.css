@@ -233,6 +233,21 @@ body, html {
   color: var(--text-secondary);
 }
 
+.toolbar-title-left {
+  margin-left: 6px;
+  margin-right: 12px;
+  flex-shrink: 0;
+  max-width: 280px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.toolbar-drag-area {
+  flex: 1;
+  height: 100%;
+  min-width: 20px;
+}
+
 .dirty-badge {
   color: var(--accent-color);
   font-size: 18px;
@@ -966,10 +981,11 @@ input:checked + .slider:before {
 
 .tab-item.active {
   background-color: var(--bg-primary);
-  border-color: var(--border-subtle);
+  border: 1px solid var(--border-color);
+  border-bottom-color: transparent;
   color: var(--text-primary);
-  font-weight: 500;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  font-weight: 700;
+  box-shadow: 0 -2px 0 0 var(--accent-color) inset, 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 .tab-icon {
@@ -979,6 +995,11 @@ input:checked + .slider:before {
 
 .tab-item.active .tab-icon {
   color: var(--accent-color);
+}
+
+.tab-item.active .tab-title {
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 .tab-title {
@@ -1438,20 +1459,31 @@ input:checked + .slider:before {
 
 /* Night Tab Bar */
 .theme-night .tab-item {
-  color: #b8c1cc;
+  color: #94a3b8;
+  border-color: transparent;
 }
 
 .theme-night .tab-item:hover {
-  background-color: #3a4147;
-  color: #ffffff;
+  background-color: #333940;
+  color: #f1f5f9;
 }
 
 .theme-night .tab-item.active {
-  background-color: #363b40;
-  border-color: #525a63;
+  background-color: #3b424a;
+  border: 1px solid #525c68;
+  border-bottom-color: transparent;
   color: #ffffff;
-  font-weight: 600;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+  box-shadow: 0 -2px 0 0 #00e676 inset, 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.theme-night .tab-item.active .tab-icon {
+  color: #00e676;
+}
+
+.theme-night .tab-item.active .tab-title {
+  color: #ffffff;
+  font-weight: 700;
 }
 
 .theme-night .tab-close-btn:hover {
@@ -1671,6 +1703,40 @@ input:checked + .slider:before {
   background: rgba(0, 0, 0, 0.22);
 }
 
+/* No background toggle for Typewriter and Sound buttons (Icon & color only) */
+.toolbar-btn.icon-only.no-bg-toggle,
+.toolbar-btn.icon-only.no-bg-toggle.active {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.toolbar-btn.icon-only.no-bg-toggle.mode-off,
+.toolbar-btn.icon-only.no-bg-toggle.sound-off {
+  color: var(--text-muted) !important;
+  opacity: 0.62;
+}
+
+.toolbar-btn.icon-only.no-bg-toggle.mode-active,
+.toolbar-btn.icon-only.no-bg-toggle.sound-active {
+  color: var(--accent-color) !important;
+  opacity: 1;
+}
+
+.toolbar-btn.icon-only.no-bg-toggle:hover {
+  background-color: var(--bg-tertiary) !important;
+  opacity: 1;
+}
+
+.toolbar-btn.icon-only.no-bg-toggle .mini-mode-badge {
+  background: transparent;
+  color: var(--accent-color);
+  font-size: 8.5px;
+  font-weight: 800;
+  bottom: 0px;
+  right: 1px;
+}
+
 /* Sound Menu Popup */
 .sound-menu-popup {
   width: 280px;
@@ -1729,6 +1795,35 @@ input:checked + .slider:before {
   background-color: rgba(255, 255, 255, 0.62);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
+}
+
+.theme-custom .tab-item {
+  color: #475569;
+  background-color: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.theme-custom .tab-item:hover {
+  background-color: rgba(255, 255, 255, 0.72);
+  color: #0f172a;
+}
+
+.theme-custom .tab-item.active {
+  background-color: #ffffff;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  border-bottom-color: transparent;
+  color: #0f172a;
+  font-weight: 700;
+  box-shadow: 0 -2px 0 0 #3b82f6 inset, 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+
+.theme-custom .tab-item.active .tab-icon {
+  color: #3b82f6;
+}
+
+.theme-custom .tab-item.active .tab-title {
+  color: #0f172a;
+  font-weight: 700;
 }
 
 .theme-custom .editor-viewport {
