@@ -6,7 +6,7 @@ export interface TypingSoundOption {
 }
 
 export const TYPING_SOUND_OPTIONS: TypingSoundOption[] = [
-  { id: "off", name: "무음" },
+  { id: "off", name: "0. 무음" },
   { id: "vintage-olympia", name: "1. 클래식 타자기" },
   { id: "vintage-hermes", name: "2. 포터블 타자기" },
   { id: "ibm-selectric", name: "3. 전동 타자기" },
@@ -17,6 +17,7 @@ export const TYPING_SOUND_OPTIONS: TypingSoundOption[] = [
   { id: "topre-raindrop", name: "8. 무접점 빗방울" },
   { id: "omm-waterdrop", name: "9. 옴 물방울" },
   { id: "wood-keycap", name: "10. 우드 키캡" },
+  { id: "vintage-underwood", name: "11. 언더우드 타자기" },
 ];
 
 let audioCtx: AudioContext | null = null;
@@ -201,6 +202,21 @@ export function playTypingSound(profile: TypingSoundProfile, key?: string): void
       triggerTone(ctx, now, "sine", 410 * pitchMod, 175, 0.24, 0.03);
       triggerTone(ctx, now, "triangle", 820 * pitchMod, 390, 0.11, 0.018);
       triggerFilteredNoise(ctx, now, "bandpass", 1250 * pitchMod, 4.5, 0.18, 0.02);
+      break;
+    }
+    case "vintage-underwood": {
+      // 1920s Antique Underwood Typewriter (Deep metallic impact & heavy iron chamber resonance)
+      if (isSpace) {
+        triggerFilteredNoise(ctx, now, "bandpass", 820 * pitchMod, 2.0, 0.35, 0.045);
+        triggerTone(ctx, now, "triangle", 115 * pitchMod, 45, 0.28, 0.048);
+      } else {
+        // Heavy metallic clack
+        triggerFilteredNoise(ctx, now, "bandpass", 1680 * pitchMod, 3.2, 0.46, 0.032);
+        // Deep body resonance
+        triggerTone(ctx, now, "triangle", 155 * pitchMod, 48, 0.36, 0.042);
+        // Steel lever spring click
+        triggerFilteredNoise(ctx, now + 0.007, "highpass", 3200 * pitchMod, 1.6, 0.24, 0.022);
+      }
       break;
     }
   }

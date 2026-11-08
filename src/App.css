@@ -1771,7 +1771,7 @@ input:checked + .slider:before {
 
 /* Sound Menu Popup: No scroll, compact 2-column grid */
 .compact-sound-popup {
-  width: 250px;
+  width: 280px;
   max-height: none !important;
   overflow: visible !important;
   padding: 6px;
@@ -1785,23 +1785,38 @@ input:checked + .slider:before {
   z-index: 100;
   display: flex;
   flex-direction: column;
+}
+
+.sound-grid-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 4px;
 }
 
 .sound-grid-item {
-  padding: 5px 8px;
-  font-size: 11px;
+  padding: 6px 10px;
+  font-size: 11.5px;
   font-weight: 500;
   border-radius: 5px;
   border: 1px solid var(--border-color);
   background-color: var(--bg-secondary);
   color: var(--text-secondary);
-  text-align: center;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   transition: all 0.12s ease;
+}
+
+.sound-grid-item span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
 }
 
 .sound-grid-item:hover {
@@ -1815,16 +1830,6 @@ input:checked + .slider:before {
   border-color: var(--text-primary);
   color: var(--text-primary);
   font-weight: 700;
-}
-
-.sound-grid-item.mute-item {
-  width: 100%;
-}
-
-.sound-grid-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
 }
 
 .popup-section-title {

@@ -13,7 +13,8 @@ export type TypingSoundProfile =
   | "custom-thock"
   | "topre-raindrop"
   | "omm-waterdrop"
-  | "wood-keycap";
+  | "wood-keycap"
+  | "vintage-underwood";
 
 export interface FileInfo {
   path: string;
