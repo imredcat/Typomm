@@ -10,23 +10,32 @@ interface OutlineProps {
 
 export const Outline: React.FC<OutlineProps> = ({ outline, onSelect, onClose }) => {
   return (
-    <aside className="outline-sidebar">
-      <div className="outline-header">
-        <div className="outline-title">
-          <ListTree size={16} />
-          <span>목차 (Outline)</span>
+    <aside className="ulysses-column outline-sidebar">
+      <div className="column-header">
+        <div className="column-title">
+          <ListTree size={15} />
+          <span>문서내 목차</span>
         </div>
-        <button className="icon-btn" onClick={onClose} title="목차 닫기">
-          <X size={15} />
-        </button>
+        <div className="column-actions">
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onClose}
+            title="문서내 목차 영역 닫기"
+          >
+            <X size={15} />
+          </button>
+        </div>
       </div>
-      <div className="outline-list">
+
+      <div className="column-body outline-list">
         {outline.length === 0 ? (
           <div className="outline-empty">제목(Heading)이 없습니다.</div>
         ) : (
           outline.map((item) => (
             <button
               key={item.id}
+              type="button"
               className={`outline-item level-${item.level}`}
               onClick={() => onSelect(item.pos)}
             >

@@ -22,6 +22,19 @@ export interface FileInfo {
   content: string;
 }
 
+export interface FolderNode {
+  name: string;
+  path: string;
+  is_dir: boolean;
+  children?: FolderNode[] | null;
+}
+
+export interface FolderTree {
+  root_path: string;
+  root_name: string;
+  nodes: FolderNode[];
+}
+
 export interface TabItem {
   id: string;
   path: string | null;

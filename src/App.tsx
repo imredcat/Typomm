@@ -5,15 +5,66 @@ import { Editor, EditorHandle } from "./components/Editor";
 import { Toolbar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
 import { Outline } from "./components/Outline";
+import { FolderSidebar } from "./components/FolderSidebar";
 import { StatusBar } from "./components/StatusBar";
 import { SettingsModal } from "./components/SettingsModal";
 import { Cheatsheet } from "./components/Cheatsheet";
 import { generateStandaloneHtml } from "./utils/htmlExporter";
 import { playTypingSound, playCarriageReturnBell } from "./utils/soundEffects";
-import { FileInfo, OutlineItem, AppSettings, DEFAULT_SETTINGS, TabItem } from "./types";
+import {
+  FileInfo,
+  FolderTree,
+  OutlineItem,
+  AppSettings,
+  DEFAULT_SETTINGS,
+  TabItem,
+} from "./types";
 import "./App.css";
 
 const SETTINGS_STORAGE_KEY = "typomm_settings";
+
+function computeRelativeFilePath(
+  fromFilePath: string | null,
+  toFilePath: string,
+  rootFolderPath?: string | null
+): string {
+  const normalize = (p: string) => p.replace(/\\/g, "/");
+  const target = normalize(toFilePath);
+
+  let baseDir: string | null = null;
+  if (fromFilePath) {
+    const normFrom = normalize(fromFilePath);
+    const lastSlash = normFrom.lastIndexOf("/");
+    if (lastSlash >= 0) {
+      baseDir = normFrom.slice(0, lastSlash);
+    }
+  } else if (rootFolderPath) {
+    baseDir = normalize(rootFolderPath).replace(/\/+$/, "");
+  }
+
+  if (!baseDir) {
+    return target;
+  }
+
+  const fromParts = baseDir.split("/").filter(Boolean);
+  const toParts = target.split("/").filter(Boolean);
+
+  let commonLen = 0;
+  const minLen = Math.min(fromParts.length, toParts.length);
+  while (commonLen < minLen && fromParts[commonLen] === toParts[commonLen]) {
+    commonLen++;
+  }
+
+  if (commonLen === 0) {
+    return target;
+  }
+
+  const upCount = fromParts.length - commonLen;
+  const downParts = toParts.slice(commonLen);
+  const relParts = [...Array(upCount).fill(".."), ...downParts];
+  const rel = relParts.join("/");
+  return upCount === 0 ? `./${rel}` : rel;
+}
 
 function hexToRgba(hex: string, alpha: number): string {
   const cleaned = hex.replace("#", "").trim();
@@ -62,6 +113,10 @@ export default function App() {
   const [activeTabId, setActiveTabId] = useState<string>("tab-1");
 
   const [isOutlineOpen, setIsOutlineOpen] = useState<boolean>(false);
+  const [isTabsOpen, setIsTabsOpen] = useState<boolean>(true);
+  const [isFolderOpen, setIsFolderOpen] = useState<boolean>(false);
+  const [folderTree, setFolderTree] = useState<FolderTree | null>(null);
+  const [isDragOverEditor, setIsDragOverEditor] = useState<boolean>(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [isCheatsheetOpen, setIsCheatsheetOpen] = useState<boolean>(false);
 
@@ -122,23 +177,18 @@ export default function App() {
     });
   }, []);
 
-  // Sync editor content whenever active tab changes
-  useEffect(() => {
-    if (activeTab && editorRef.current) {
-      editorRef.current.setMarkdown(activeTab.content);
-    }
-  }, [activeTabId]);
-
   // Tab Operations
   const handleNewTab = useCallback(() => {
-    const currentMarkdown = editorRef.current?.getMarkdown();
+    const currentMarkdown = activeTab.isSourceMode
+      ? activeTab.content
+      : editorRef.current?.getMarkdown() ?? activeTab.content;
     const newTabId = `tab-${Date.now()}`;
     const newTabName = `제목 없음 ${tabs.length + 1}`;
     const newTabContent = "# 제목 없음\n\n";
 
     setTabs((prev) => {
       const updated = prev.map((t) =>
-        t.id === activeTabId && currentMarkdown !== undefined ? { ...t, content: currentMarkdown } : t
+        t.id === activeTabId ? { ...t, content: currentMarkdown } : t
       );
       return [
         ...updated,
@@ -158,31 +208,40 @@ export default function App() {
       editorRef.current?.setMarkdown(newTabContent);
       editorRef.current?.focus();
     }, 10);
-  }, [activeTabId, tabs.length]);
+  }, [activeTabId, activeTab.isSourceMode, activeTab.content, tabs.length]);
 
   const handleSelectTab = useCallback(
     (targetId: string) => {
       if (targetId === activeTabId) return;
 
-      const currentMarkdown = editorRef.current?.getMarkdown() || activeTab.content;
+      const currentMarkdown = activeTab.isSourceMode
+        ? activeTab.content
+        : editorRef.current?.getMarkdown() ?? activeTab.content;
+
+      const targetTab = tabs.find((t) => t.id === targetId);
+      if (!targetTab) return;
+
       setTabs((prev) =>
         prev.map((t) => (t.id === activeTabId ? { ...t, content: currentMarkdown } : t))
       );
 
-      const targetTab = tabs.find((t) => t.id === targetId);
       setActiveTabId(targetId);
 
-      if (targetTab && editorRef.current) {
-        editorRef.current.setMarkdown(targetTab.content);
+      if (!targetTab.isSourceMode) {
+        editorRef.current?.setMarkdown(targetTab.content);
+        setTimeout(() => {
+          editorRef.current?.focus();
+        }, 10);
       }
     },
-    [activeTabId, activeTab, tabs]
+    [activeTabId, activeTab.isSourceMode, activeTab.content, tabs]
   );
 
   const handleCloseTab = useCallback(
     (targetId: string, e?: React.MouseEvent) => {
       if (e) {
         e.stopPropagation();
+        e.preventDefault();
       }
 
       const targetTab = tabs.find((t) => t.id === targetId);
@@ -195,7 +254,7 @@ export default function App() {
         if (!confirmClose) return;
       }
 
-      if (tabs.length === 1) {
+      if (tabs.length <= 1) {
         const emptyTab: TabItem = {
           id: `tab-${Date.now()}`,
           path: null,
@@ -218,9 +277,11 @@ export default function App() {
         const nextIndex = Math.min(closingIndex, remainingTabs.length - 1);
         const nextTab = remainingTabs[nextIndex];
         setActiveTabId(nextTab.id);
-        setTimeout(() => {
-          editorRef.current?.setMarkdown(nextTab.content);
-        }, 10);
+        if (!nextTab.isSourceMode) {
+          setTimeout(() => {
+            editorRef.current?.setMarkdown(nextTab.content);
+          }, 10);
+        }
       }
     },
     [tabs, activeTabId]
@@ -269,8 +330,8 @@ export default function App() {
         }, 10);
       }
     } catch (err) {
-      console.error("파일 열기 실패:", err);
-      alert(`파일 열기 실패: ${err}`);
+      console.error("문서 열기 실패:", err);
+      alert(`문서 열기 실패: ${err}`);
     }
   }, [tabs, activeTab, handleSelectTab]);
 
@@ -304,8 +365,8 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.error("파일 저장 실패:", err);
-      alert(`파일 저장 실패: ${err}`);
+      console.error("문서 저장 실패:", err);
+      alert(`문서 저장 실패: ${err}`);
     }
   }, [activeTab]);
 
@@ -352,6 +413,160 @@ export default function App() {
   const handleToggleOutline = () => {
     setIsOutlineOpen((prev) => !prev);
   };
+
+  const handleToggleTabs = () => {
+    setIsTabsOpen((prev) => !prev);
+  };
+
+  const handleToggleFolder = () => {
+    setIsFolderOpen((prev) => !prev);
+  };
+
+  const handlePickFolder = useCallback(async () => {
+    try {
+      const res = await invoke<FolderTree | null>("open_folder_dialog");
+      if (res) {
+        setFolderTree(res);
+        setIsFolderOpen(true);
+      }
+    } catch (err) {
+      console.error("폴더 열기 실패:", err);
+      alert(`폴더 열기 실패: ${err}`);
+    }
+  }, []);
+
+  const handleRefreshFolder = useCallback(async () => {
+    if (!folderTree) return;
+    try {
+      const res = await invoke<FolderTree>("read_folder_tree", {
+        path: folderTree.root_path,
+      });
+      setFolderTree(res);
+    } catch (err) {
+      console.error("폴더 새로고침 실패:", err);
+    }
+  }, [folderTree]);
+
+  const handleOpenFileByPath = useCallback(
+    async (filePath: string) => {
+      try {
+        const existingTab = tabs.find((t) => t.path === filePath);
+        if (existingTab) {
+          handleSelectTab(existingTab.id);
+          return;
+        }
+
+        const res = await invoke<FileInfo>("read_file", { path: filePath });
+
+        if (
+          !activeTab.path &&
+          !activeTab.isDirty &&
+          (activeTab.content.trim() === "" || activeTab.content === "# 제목 없음\n\n")
+        ) {
+          setTabs((prev) =>
+            prev.map((t) =>
+              t.id === activeTab.id
+                ? { ...t, path: res.path, name: res.name, content: res.content, isDirty: false }
+                : t
+            )
+          );
+          editorRef.current?.setMarkdown(res.content);
+          return;
+        }
+
+        const currentMarkdown = activeTab.isSourceMode
+          ? activeTab.content
+          : editorRef.current?.getMarkdown() ?? activeTab.content;
+
+        const newTabId = `tab-${Date.now()}`;
+        const newTab: TabItem = {
+          id: newTabId,
+          path: res.path,
+          name: res.name,
+          content: res.content,
+          isDirty: false,
+          isSourceMode: false,
+        };
+
+        setTabs((prev) => [
+          ...prev.map((t) => (t.id === activeTabId ? { ...t, content: currentMarkdown } : t)),
+          newTab,
+        ]);
+        setActiveTabId(newTabId);
+        setTimeout(() => {
+          editorRef.current?.setMarkdown(res.content);
+        }, 10);
+      } catch (err) {
+        console.error("파일 열기 실패:", err);
+        alert(`파일 열기 실패: ${err}`);
+      }
+    },
+    [tabs, activeTab, activeTabId, handleSelectTab]
+  );
+
+  // 폴더 트리에서 파일을 에디터로 드래그앤드롭 시 열려있는 문서에 링크 생성
+  const handleEditorDragOver = useCallback((e: React.DragEvent<HTMLElement>) => {
+    if (e.dataTransfer.types.includes("application/x-typomm-file")) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = "link";
+      setIsDragOverEditor(true);
+    }
+  }, []);
+
+  const handleEditorDragLeave = useCallback((e: React.DragEvent<HTMLElement>) => {
+    if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsDragOverEditor(false);
+    }
+  }, []);
+
+  const handleEditorDrop = useCallback(
+    (e: React.DragEvent<HTMLElement>) => {
+      const raw = e.dataTransfer.getData("application/x-typomm-file");
+      if (!raw) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOverEditor(false);
+
+      try {
+        const { name, path } = JSON.parse(raw) as { name: string; path: string };
+        const linkHref = computeRelativeFilePath(activeTab.path, path, folderTree?.root_path);
+        const markdownLink = `[${name}](${linkHref})`;
+
+        if (activeTab.isSourceMode) {
+          const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
+          if (textarea) {
+            const start = textarea.selectionStart ?? textarea.value.length;
+            const end = textarea.selectionEnd ?? textarea.value.length;
+            const oldText = textarea.value;
+            const newText = oldText.slice(0, start) + markdownLink + oldText.slice(end);
+            setTabs((prev) =>
+              prev.map((t) => (t.id === activeTabId ? { ...t, content: newText, isDirty: true } : t))
+            );
+            setTimeout(() => {
+              textarea.focus();
+              const nextPos = start + markdownLink.length;
+              textarea.setSelectionRange(nextPos, nextPos);
+            }, 10);
+          } else {
+            setTabs((prev) =>
+              prev.map((t) =>
+                t.id === activeTabId
+                  ? { ...t, content: t.content + "\n" + markdownLink, isDirty: true }
+                  : t
+              )
+            );
+          }
+        } else {
+          editorRef.current?.insertFileLink(name, linkHref, e.clientX, e.clientY);
+        }
+      } catch (err) {
+        console.error("드래그앤드롭 링크 생성 실패:", err);
+      }
+    },
+    [activeTab.path, activeTab.isSourceMode, activeTabId, folderTree?.root_path]
+  );
 
   const handleExportHtmlFile = useCallback(async () => {
     let bodyHtml = "";
@@ -730,16 +945,21 @@ export default function App() {
         isDirty={activeTab.isDirty}
         isSourceMode={activeTab.isSourceMode}
         isOutlineOpen={isOutlineOpen}
+        isTabsOpen={isTabsOpen}
+        isFolderOpen={isFolderOpen}
         isCheatsheetOpen={isCheatsheetOpen}
         typewriterMode={settings.typewriterMode}
         typewriterStyle={settings.typewriterStyle}
         typingSound={settings.typingSound}
         onNew={handleNewTab}
         onOpen={handleOpen}
+        onPickFolder={handlePickFolder}
         onSave={handleSave}
         onSaveAs={handleSaveAs}
         onToggleSourceMode={handleToggleSourceMode}
         onToggleOutline={handleToggleOutline}
+        onToggleTabs={handleToggleTabs}
+        onToggleFolder={handleToggleFolder}
         onToggleCheatsheet={() => setIsCheatsheetOpen((prev) => !prev)}
         onCycleTypewriter={handleCycleTypewriter}
         onSelectTypingSound={(sound) => updateSettings({ typingSound: sound })}
@@ -749,15 +969,33 @@ export default function App() {
         onCopyHtmlCode={handleCopyHtmlCode}
       />
 
-      <TabBar
-        tabs={tabs}
-        activeTabId={activeTabId}
-        onSelectTab={handleSelectTab}
-        onCloseTab={handleCloseTab}
-        onNewTab={handleNewTab}
-      />
-
+      {/* Ulysses 스타일 좌측 다중 컬럼 레이아웃: 왼쪽에서부터 순서대로 [폴더] -> [문서 탭] -> [목차] -> [편집영역] */}
       <div className="main-layout">
+        {/* 1. 폴더 (가장 왼쪽) */}
+        {isFolderOpen && (
+          <FolderSidebar
+            folderTree={folderTree}
+            activeFilePath={activeTab.path}
+            onPickFolder={handlePickFolder}
+            onRefreshFolder={handleRefreshFolder}
+            onOpenFile={handleOpenFileByPath}
+            onClose={() => setIsFolderOpen(false)}
+          />
+        )}
+
+        {/* 2. 문서 탭 (세로 탭 영역) */}
+        {isTabsOpen && (
+          <TabBar
+            tabs={tabs}
+            activeTabId={activeTabId}
+            onSelectTab={handleSelectTab}
+            onCloseTab={handleCloseTab}
+            onNewTab={handleNewTab}
+            onClosePanel={() => setIsTabsOpen(false)}
+          />
+        )}
+
+        {/* 3. 문서내 목차 */}
         {isOutlineOpen && (
           <Outline
             outline={outline}
@@ -776,10 +1014,14 @@ export default function App() {
           />
         )}
 
+        {/* 4. 편집영역 (메인 캔버스) */}
         <main
           className={`editor-viewport width-${settings.contentWidth} font-${settings.fontFamily} ${
             settings.typewriterMode ? `typewriter-mode typewriter-${settings.typewriterStyle}` : ""
-          }`}
+          } ${isDragOverEditor ? "drag-over-target" : ""}`}
+          onDragOverCapture={handleEditorDragOver}
+          onDragLeaveCapture={handleEditorDragLeave}
+          onDropCapture={handleEditorDrop}
         >
           {activeTab.isSourceMode && (
             <div className="source-mode-container">
@@ -831,7 +1073,7 @@ export default function App() {
               typingSound={settings.typingSound}
               onChange={(md) => {
                 setTabs((prev) =>
-                  prev.map((t) => (t.id === activeTab.id ? { ...t, content: md, isDirty: true } : t))
+                  prev.map((t) => (t.id === activeTabId ? { ...t, content: md, isDirty: true } : t))
                 );
               }}
               onOutlineUpdate={setOutline}

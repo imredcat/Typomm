@@ -9,10 +9,130 @@ pub struct FileInfo {
     pub content: String,
 }
 
+#[derive(Serialize, Deserialize, Clone)]
+pub struct FolderNode {
+    pub name: String,
+    pub path: String,
+    pub is_dir: bool,
+    pub children: Option<Vec<FolderNode>>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct FolderTree {
+    pub root_path: String,
+    pub root_name: String,
+    pub nodes: Vec<FolderNode>,
+}
+
+fn scan_dir_filtered(dir: &Path, depth: usize) -> Vec<FolderNode> {
+    if depth > 6 {
+        return Vec::new();
+    }
+
+    let entries = match fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut nodes: Vec<FolderNode> = Vec::new();
+
+    for entry in entries.flatten() {
+        let path_buf = entry.path();
+        let file_name = match path_buf.file_name() {
+            Some(n) => n.to_string_lossy().to_string(),
+            None => continue,
+        };
+
+        // 숨김 파일/폴더 및 빌드/패키지 폴더 제외
+        if file_name.starts_with('.')
+            || file_name == "node_modules"
+            || file_name == "target"
+            || file_name == "dist"
+        {
+            continue;
+        }
+
+        let path_str = path_buf.to_string_lossy().to_string();
+
+        if path_buf.is_dir() {
+            let children = scan_dir_filtered(&path_buf, depth + 1);
+            nodes.push(FolderNode {
+                name: file_name,
+                path: path_str,
+                is_dir: true,
+                children: Some(children),
+            });
+        } else if path_buf.is_file() {
+            let ext = path_buf
+                .extension()
+                .map(|e| e.to_string_lossy().to_lowercase())
+                .unwrap_or_default();
+
+            if matches!(ext.as_str(), "md" | "markdown" | "html" | "htm") {
+                nodes.push(FolderNode {
+                    name: file_name,
+                    path: path_str,
+                    is_dir: false,
+                    children: None,
+                });
+            }
+        }
+    }
+
+    nodes.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+    });
+
+    nodes
+}
+
+#[tauri::command]
+fn open_folder_dialog() -> Result<Option<FolderTree>, String> {
+    let folder = rfd::FileDialog::new().pick_folder();
+
+    if let Some(path_buf) = folder {
+        let root_path = path_buf.to_string_lossy().to_string();
+        let root_name = path_buf
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| root_path.clone());
+        let nodes = scan_dir_filtered(&path_buf, 0);
+
+        Ok(Some(FolderTree {
+            root_path,
+            root_name,
+            nodes,
+        }))
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+fn read_folder_tree(path: String) -> Result<FolderTree, String> {
+    let path_buf = Path::new(&path);
+    if !path_buf.exists() || !path_buf.is_dir() {
+        return Err("유효하지 않은 폴더 경로입니다.".to_string());
+    }
+    let root_name = path_buf
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| path.clone());
+    let nodes = scan_dir_filtered(path_buf, 0);
+
+    Ok(FolderTree {
+        root_path: path,
+        root_name,
+        nodes,
+    })
+}
+
 #[tauri::command]
 fn open_file_dialog() -> Result<Option<FileInfo>, String> {
     let file = rfd::FileDialog::new()
-        .add_filter("Markdown", &["md", "markdown", "txt"])
+        .add_filter("Markdown & HTML", &["md", "markdown", "html", "htm", "txt"])
         .pick_file();
 
     if let Some(path_buf) = file {
@@ -194,6 +314,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             open_file_dialog,
+            open_folder_dialog,
+            read_folder_tree,
             read_file,
             save_file,
             save_file_as_dialog,

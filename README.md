@@ -22,10 +22,16 @@
 
 - **실시간 인라인 위지윅 (Seamless Live Preview)**:
   - 별도의 분할 미리보기 창 없이, `# 제목`, `**볼드**`, `*이탤릭*`, `- [ ] 체크박스`, ` ``` 코드블록`, `| 표 |`, `> 인용구` 입력 즉시 해당 위치에 서식이 렌더링됩니다.
-- **정통 에디터 탭 바 (Authentic Multi-Tab Management)**:
-  - 브라우저처럼 바닥선이 에디터 캔버스와 매끄럽게 연결되는 정통 탭 구조 (`Cmd + T` 새 탭, `Cmd + W` 탭 닫기).
-  - 활성 탭의 시인성을 극대화하여 현재 작업 중인 문서를 한눈에 파악.
-  - 탭마다 독립된 내용, 수정 상태(`•`), 파일 경로가 안전하게 관리됩니다.
+- **Ulysses 스타일 좌측 다중 컬럼 레이아웃 (Multi-Column Workspace)**:
+  - 화면 왼쪽에서부터 순서대로 **`[1. 폴더]` → `[2. 문서 탭]` → `[3. 문서내 목차]` → `[4. 편집영역]`** 구조로 배치됩니다.
+  - 상단 액션바 좌측의 **`[폴더]` · `[문서 탭]` · `[목차]`** 토글 버튼 및 각 영역 상단의 닫기(`X`) 버튼으로 원하는 영역만 자유롭게 열고 닫을 수 있습니다.
+- **시스템 폴더 트리 & 드래그앤드롭 문서 링크 생성**:
+  - **폴더 열기**: 선택한 폴더 내 하위 폴더와 **`.md`(`.markdown`), `.html`(`.htm`) 문서**만 깔끔한 트리 형식으로 필터링하여 표시합니다.
+  - **더블클릭 문서 열기**: 폴더 트리의 문서를 더블클릭하면 즉시 에디터에 열립니다.
+  - **드래그앤드롭 링크 삽입**: 폴더 영역에서 문서를 에디터로 드래그앤드롭하면 현재 열려 있는 문서 위치 기준 상대 경로를 자동 계산하여 `[문서명](경로)` 링크를 즉시 생성합니다.
+- **세로 문서 탭 관리 (Vertical Document Tabs)**:
+  - 열려 있는 문서들을 세로 시트 목록 형태로 한눈에 파악하고 전환(`Cmd + T` 새 문서 탭, `Cmd + W` 탭 닫기).
+  - 문서마다 독립된 내용, 수정 상태(`•`), 상위 폴더 경로가 직관적으로 표시됩니다.
 - **마크다운 문법 치트시트 우측 사이드바 (Markdown Cheatsheet Sidebar)**:
   - 제목, 강조 서식, 목록, 체크리스트, 인용구, 코드 블록, 표, 링크 등 마크다운 주요 문법 안내.
   - 화면을 가리는 모달 대신 우측 도킹 사이드바로 언제든 참고하며 원클릭 **[삽입]** 및 **[복사]** 기능 제공.
@@ -118,37 +124,60 @@ pnpm tauri build
 
 ---
 
-### 🪟 Windows 빌드 가이드
+### 🪟 Windows 빌드 가이드 (Windows 10 / 11 상세 매뉴얼)
 
-Windows 환경(Windows 10 / 11)에서도 명령어는 동일합니다.
+Windows 환경(PowerShell 또는 Windows Terminal)에서 처음부터 빌드하는 전체 과정입니다.
 
-#### 1) 사전 준비
-- **C++ Build Tools 설치**:
-  - [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) 설치 시 **"C++를 사용한 데스크톱 개발"** 워크로드를 선택하여 설치합니다.
-- **WebView2 런타임**:
-  - Windows 10/11에는 기본 탑재되어 있습니다. (미설치 시 Microsoft Evergreen 런타임 자동 다운로드)
-- **Rust Windows 타깃 확인**:
-  ```powershell
-  rustup default stable-x86_64-pc-windows-msvc
-  ```
+#### 1) 필수 개발 도구 설치 (최초 1회)
 
-#### 2) 의존성 설치
+1. **Microsoft Visual Studio C++ Build Tools 설치** (Rust 컴파일에 필수)
+   - [Visual Studio Build Tools 다운로드 페이지](https://visualstudio.microsoft.com/ko/visual-cpp-build-tools/)에서 설치 파일을 받아 실행합니다.
+   - 워크로드 탭에서 **"C++를 사용한 데스크톱 개발 (Desktop development with C++)"**을 체크합니다.
+   - 우측 설치 세부 정보에서 **MSVC v143 C++ x64/x86 빌드 도구**와 **Windows 10/11 SDK**가 체크되어 있는지 확인 후 설치합니다.
+2. **Rust 설치**
+   - [rustup.rs](https://rustup.rs/)에서 `rustup-init.exe`를 다운로드하여 실행하고 기본 옵션(`1) Proceed with standard installation`)으로 설치합니다.
+   - 설치 후 터미널(PowerShell)을 재시작하고 아래 명령어로 정상 설치 및 MSVC 타깃을 확인합니다:
+     ```powershell
+     rustc --version
+     cargo --version
+     rustup default stable-x86_64-pc-windows-msvc
+     ```
+3. **Node.js 및 pnpm 설치**
+   - [Node.js LTS (v20 이상 권장)](https://nodejs.org/)를 설치합니다.
+   - PowerShell에서 `pnpm`을 활성화합니다:
+     ```powershell
+     corepack enable
+     # 또는 npm으로 직접 설치:
+     npm install -g pnpm
+     ```
+4. **Microsoft Edge WebView2 런타임**
+   - Windows 10(최신 업데이트) 및 Windows 11에는 이미 기본 내장되어 있습니다.
+
+#### 2) 저장소 클론 및 패키지 설치
 ```powershell
-pnpm install --ignore-scripts
+git clone https://github.com/imredcat/Typomm.git
+cd Typomm
+pnpm install
 ```
 
 #### 3) 로컬 개발 모드 실행
+네이티브 Windows 창이 열리며 코드 수정 시 실시간 반영(HMR)됩니다:
 ```powershell
 pnpm tauri dev
 ```
 
-#### 4) 릴리즈 패키징 (`.exe` 및 `.msi`)
+#### 4) Windows 배포용 설치 파일 빌드 (`.exe` / `.msi`)
 ```powershell
 pnpm tauri build
 ```
-빌드가 완료되면 아래 디렉터리에 배포용 실행 파일이 생성됩니다:
-- **NSIS 독립 실행형 인스톨러**: `src-tauri/target/release/bundle/nsis/Typomm_0.1.0_x64-setup.exe`
-- **Windows MSI 인스톨러**: `src-tauri/target/release/bundle/msi/Typomm_0.1.0_x64_en-US.msi`
+- 만약 특정 포맷(예: NSIS `.exe` 인스톨러만) 빠르게 빌드하고 싶다면:
+  ```powershell
+  pnpm tauri build --bundles nsis
+  ```
+- 빌드가 완료되면 아래 경로에 실행 파일 및 설치 프로그램이 생성됩니다:
+  - **포터블 단독 실행 파일 (`.exe`)**: `src-tauri\target\release\typomm.exe`
+  - **NSIS 설치 프로그램 (`setup.exe`)**: `src-tauri\target\release\bundle\nsis\Typomm_0.1.0_x64-setup.exe`
+  - **Windows MSI 설치 프로그램 (`.msi`)**: `src-tauri\target\release\bundle\msi\Typomm_0.1.0_x64_en-US.msi`
 
 ---
 

@@ -13,13 +13,14 @@
     "windows": [
       {
         "title": "Typomm",
-        "width": 1050,
-        "height": 780,
-        "minWidth": 640,
+        "width": 1240,
+        "height": 800,
+        "minWidth": 680,
         "minHeight": 450,
         "decorations": true,
         "hiddenTitle": true,
         "titleBarStyle": "Overlay",
+        "dragDropEnabled": false,
         "trafficLightPosition": {
           "x": 18,
           "y": 22

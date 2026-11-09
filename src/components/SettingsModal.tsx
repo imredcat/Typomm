@@ -166,9 +166,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="settings-row">
                   <span className="row-label">배경 이미지</span>
                   <div className="color-picker-row">
-                    <button className="option-btn active" onClick={handlePickLocalImage} title="배경 이미지 파일 선택">
+                    <button className="option-btn active" onClick={handlePickLocalImage} title="배경 이미지 선택">
                       <ImageIcon size={12} style={{ marginRight: 4, verticalAlign: "-1px" }} />
-                      파일 선택
+                      이미지 선택
                     </button>
                     <input
                       ref={fileInputRef}

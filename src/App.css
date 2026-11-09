@@ -100,11 +100,15 @@ body, html {
 
 /* UI Elements: Always retain standard macOS system font */
 .typora-toolbar,
+.typora-actionbar,
 .typora-tabbar,
 .typora-statusbar,
 .settings-modal,
 .cheatsheet-sidebar,
-.outline-sidebar {
+.ulysses-column,
+.outline-sidebar,
+.vertical-tabbar,
+.folder-sidebar {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", Helvetica, Arial, sans-serif !important;
 }
 
@@ -958,66 +962,156 @@ input:checked + .slider:before {
   background-color: var(--accent-hover);
 }
 
-/* ----------------- Typora Tab Bar (Authentic Native Tab Structure) ----------------- */
-.typora-tabbar {
-  height: 35px;
+/* ----------------- Top Action Bar & Ulysses Multi-Column Layout ----------------- */
+.top-header-container {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  z-index: 12;
+  flex-shrink: 0;
+}
+
+.typora-actionbar {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
-  padding: 0 8px 0 6px;
+  padding: 0 12px;
   user-select: none;
-  z-index: 9;
+  z-index: 11;
   position: relative;
   transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-.tab-list {
+.actionbar-left,
+.actionbar-right {
   display: flex;
-  align-items: flex-end;
-  gap: 2px;
-  overflow-x: auto;
-  flex: 1;
+  align-items: center;
+  gap: 4px;
+}
+
+.panel-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px;
+  height: 26px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: 5px;
+}
+
+.panel-toggle-btn.active {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-color: var(--border-color);
+  font-weight: 600;
+}
+
+.left-aligned-popup {
+  left: 0 !important;
+  right: auto !important;
+}
+
+/* Ulysses Style Left Multi-Columns: [Folder] | [Vertical Tabs] | [Outline] | [Editor] */
+.ulysses-column {
   height: 100%;
-  scrollbar-width: none; /* Hide scrollbar Firefox */
+  background-color: var(--bg-secondary);
+  border-right: 1px solid var(--border-color);
+  border-left: none;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
-.tab-list::-webkit-scrollbar {
-  display: none; /* Hide scrollbar Chrome/Safari */
+.outline-sidebar.ulysses-column {
+  width: 220px;
 }
 
-.tab-item {
+.vertical-tabbar.ulysses-column {
+  width: 230px;
+}
+
+.folder-sidebar.ulysses-column {
+  width: 240px;
+}
+
+.column-header {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 10px 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.column-title {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 31px;
-  max-width: 220px;
-  min-width: 120px;
-  padding: 0 10px 0 12px;
-  background-color: transparent;
-  border: 1px solid transparent;
-  border-bottom: none;
-  border-radius: 6px 6px 0 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: background-color 0.12s ease, color 0.12s ease;
-  position: relative;
-  margin-bottom: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
 }
 
-.tab-item:hover {
+.column-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.column-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Vertical Document Tabs (Ulysses Sheets List Style) */
+.vertical-tab-list {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.vertical-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 6px 8px 6px 10px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.vertical-tab-item:hover {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
 }
 
-.tab-item.active {
+.vertical-tab-item.active {
   background-color: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--bg-primary);
+  border-color: var(--border-color);
+  border-left: 3px solid var(--text-primary);
   color: var(--text-primary);
   font-weight: 600;
-  z-index: 2;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .tab-icon {
@@ -1025,25 +1119,42 @@ input:checked + .slider:before {
   color: var(--text-muted);
 }
 
-.tab-item.active .tab-icon {
+.vertical-tab-item.active .tab-icon {
   color: var(--text-primary);
 }
 
-.tab-item.active .tab-title {
+.tab-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tab-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.vertical-tab-item.active .tab-title {
   color: var(--text-primary);
   font-weight: 600;
 }
 
-.tab-title {
-  flex: 1;
+.tab-subpath {
+  font-size: 10.5px;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 400;
 }
 
 .tab-close-btn {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1081,24 +1192,108 @@ input:checked + .slider:before {
   display: block;
 }
 
-.new-tab-btn {
-  width: 26px;
-  height: 26px;
+/* Folder Tree Sidebar */
+.folder-tree-container {
+  padding: 6px 4px;
+}
+
+.folder-empty-state {
+  padding: 32px 16px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  border-radius: 5px;
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
+  gap: 12px;
+  text-align: center;
+}
+
+.empty-desc {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.open-folder-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  margin-left: 4px;
   transition: all 0.12s ease;
 }
 
-.new-tab-btn:hover {
+.open-folder-cta-btn:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.folder-tree-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding-right: 8px;
+  border-radius: 5px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.folder-tree-item:hover {
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
+}
+
+.folder-tree-item.is-file {
+  cursor: grab;
+}
+
+.folder-tree-item.is-file:active {
+  cursor: grabbing;
+}
+
+.folder-tree-item.is-file.active {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.tree-chevron {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.tree-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.folder-tree-item.is-dir .folder-icon {
+  color: var(--text-secondary);
+}
+
+.tree-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Editor Drag & Drop Target Highlight */
+.editor-viewport.drag-over-target {
+  outline: 2px dashed var(--accent-color);
+  outline-offset: -6px;
 }
 
 
@@ -1489,46 +1684,36 @@ input:checked + .slider:before {
   color: #c0c7d0;
 }
 
-/* Night Tab Bar */
-.theme-night .tab-item {
+/* Night Vertical Tab Bar & Columns */
+.theme-night .vertical-tab-item {
   color: #94a3b8;
   border-color: transparent;
 }
 
-.theme-night .tab-item:hover {
+.theme-night .vertical-tab-item:hover {
   background-color: #333940;
   color: #f1f5f9;
 }
 
-.theme-night .tab-item.active {
+.theme-night .vertical-tab-item.active {
   background-color: #363b40;
   border: 1px solid #525c68;
-  border-bottom: 1px solid #363b40;
+  border-left: 3px solid #f1f5f9;
   color: #ffffff;
   font-weight: 600;
-  z-index: 2;
 }
 
-.theme-night .tab-item.active .tab-icon {
+.theme-night .vertical-tab-item.active .tab-icon {
   color: #f1f5f9;
 }
 
-.theme-night .tab-item.active .tab-title {
+.theme-night .vertical-tab-item.active .tab-title {
   color: #ffffff;
   font-weight: 600;
 }
 
 .theme-night .tab-close-btn:hover {
   background-color: #4d555e;
-  color: #ffffff;
-}
-
-.theme-night .new-tab-btn {
-  color: #b8c1cc;
-}
-
-.theme-night .new-tab-btn:hover {
-  background-color: #3a4147;
   color: #ffffff;
 }
 
@@ -1876,39 +2061,39 @@ input:checked + .slider:before {
 }
 
 .theme-custom .typora-toolbar,
-.theme-custom .typora-tabbar,
+.theme-custom .typora-actionbar,
+.theme-custom .ulysses-column,
 .theme-custom .typora-statusbar {
-  background-color: rgba(255, 255, 255, 0.62);
+  background-color: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
 
-.theme-custom .tab-item {
+.theme-custom .vertical-tab-item {
   color: #475569;
   background-color: rgba(255, 255, 255, 0.45);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-bottom: none;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-left: 3px solid transparent;
 }
 
-.theme-custom .tab-item:hover {
-  background-color: rgba(255, 255, 255, 0.72);
+.theme-custom .vertical-tab-item:hover {
+  background-color: rgba(255, 255, 255, 0.75);
   color: #0f172a;
 }
 
-.theme-custom .tab-item.active {
+.theme-custom .vertical-tab-item.active {
   background-color: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  border-bottom: 1px solid #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-left: 3px solid #0f172a;
   color: #0f172a;
   font-weight: 600;
-  z-index: 2;
 }
 
-.theme-custom .tab-item.active .tab-icon {
+.theme-custom .vertical-tab-item.active .tab-icon {
   color: #0f172a;
 }
 
-.theme-custom .tab-item.active .tab-title {
+.theme-custom .vertical-tab-item.active .tab-title {
   color: #0f172a;
   font-weight: 600;
 }

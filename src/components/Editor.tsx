@@ -18,6 +18,7 @@ export interface EditorHandle {
   getHTML: () => string;
   setMarkdown: (content: string) => void;
   insertText: (text: string) => void;
+  insertFileLink: (label: string, href: string, clientX?: number, clientY?: number) => void;
   focus: () => void;
   scrollToHeading: (pos: number) => void;
   centerTypewriter: () => void;
@@ -192,6 +193,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
     const rafIdRef = useRef<number | null>(null);
     const changeTimerRef = useRef<number | null>(null);
     const statsTimerRef = useRef<number | null>(null);
+    const isProgrammaticUpdateRef = useRef<boolean>(false);
     const lastTransformRef = useRef<{ tx: number; ty: number }>({ tx: 0, ty: 0 });
     const isGlidingRef = useRef<boolean>(false);
     const glideTimerRef = useRef<number | null>(null);
@@ -439,6 +441,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         // Instant Typewriter scroll response (< 16ms)
         scheduleTypewriterScroll(currentEditor);
 
+        if (isProgrammaticUpdateRef.current) {
+          return;
+        }
+
         // Debounce markdown string serialization to keep typing latency < 1ms on large documents
         if (changeTimerRef.current !== null) {
           clearTimeout(changeTimerRef.current);
@@ -573,11 +579,68 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
       },
       setMarkdown: (content: string) => {
         if (!editor) return;
+        if (changeTimerRef.current !== null) {
+          clearTimeout(changeTimerRef.current);
+          changeTimerRef.current = null;
+        }
+        if (statsTimerRef.current !== null) {
+          clearTimeout(statsTimerRef.current);
+          statsTimerRef.current = null;
+        }
+        isProgrammaticUpdateRef.current = true;
         editor.commands.setContent(content);
+        isProgrammaticUpdateRef.current = false;
+
+        const text = editor.getText();
+        const chars = text.length;
+        const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+        onStatsUpdate({ words, chars });
+
+        const items: OutlineItem[] = [];
+        editor.state.doc.descendants((node, pos) => {
+          if (node.type.name === "heading") {
+            items.push({
+              id: `heading-${pos}`,
+              level: node.attrs.level,
+              text: node.textContent,
+              pos,
+            });
+          }
+        });
+        onOutlineUpdate(items);
       },
       insertText: (text: string) => {
         if (!editor) return;
         editor.commands.insertContent(text);
+      },
+      insertFileLink: (label: string, href: string, clientX?: number, clientY?: number) => {
+        if (!editor) return;
+        const linkContent = [
+          {
+            type: "text",
+            text: label,
+            marks: [{ type: "link", attrs: { href } }],
+          },
+          {
+            type: "text",
+            text: " ",
+          },
+        ];
+
+        if (typeof clientX === "number" && typeof clientY === "number" && editor.view) {
+          const posInfo = editor.view.posAtCoords({ left: clientX, top: clientY });
+          if (posInfo && typeof posInfo.pos === "number") {
+            editor
+              .chain()
+              .focus()
+              .setTextSelection(posInfo.pos)
+              .insertContent(linkContent)
+              .run();
+            return;
+          }
+        }
+
+        editor.chain().focus().insertContent(linkContent).run();
       },
       focus: () => {
         editor?.commands.focus();
