@@ -7,8 +7,8 @@ import path from "node:path";
 const host = process.env.TAURI_DEV_HOST;
 const require = createRequire(import.meta.url);
 
-const resolvePM = (pkg: string) => {
-  const cjs = require.resolve(pkg);
+const resolvePM = (sub: string) => {
+  const cjs = require.resolve(`@tiptap/pm/${sub}`);
   return path.join(path.dirname(cjs), "index.js");
 };
 
@@ -17,10 +17,10 @@ export default defineConfig(() => ({
   plugins: [react()],
   resolve: {
     alias: [
-      { find: "@tiptap/pm/model", replacement: resolvePM("prosemirror-model") },
-      { find: "@tiptap/pm/state", replacement: resolvePM("prosemirror-state") },
-      { find: "@tiptap/pm/view", replacement: resolvePM("prosemirror-view") },
-      { find: "@tiptap/pm/transform", replacement: resolvePM("prosemirror-transform") },
+      { find: "@tiptap/pm/model", replacement: resolvePM("model") },
+      { find: "@tiptap/pm/state", replacement: resolvePM("state") },
+      { find: "@tiptap/pm/view", replacement: resolvePM("view") },
+      { find: "@tiptap/pm/transform", replacement: resolvePM("transform") },
     ],
   },
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -45,3 +45,4 @@ export default defineConfig(() => ({
     },
   },
 }));
+
