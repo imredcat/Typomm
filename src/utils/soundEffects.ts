@@ -112,6 +112,29 @@ function triggerTone(
   osc.stop(now + duration + 0.005);
 }
 
+function triggerMetallicRing(
+  ctx: AudioContext,
+  now: number,
+  freq: number,
+  gainPeak: number,
+  duration: number
+) {
+  const osc = ctx.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(freq, now);
+
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.linearRampToValueAtTime(gainPeak, now + 0.001);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start(now);
+  osc.stop(now + duration + 0.005);
+}
+
 export function playTypingSound(profile: TypingSoundProfile, key?: string): void {
   if (profile === "off") return;
 
@@ -130,67 +153,98 @@ export function playTypingSound(profile: TypingSoundProfile, key?: string): void
 
   switch (profile) {
     case "vintage-olympia": {
-      // 1950s Mechanical Typewriter (Based on real ASMR 1950s typewriter audio)
+      // 1. 클래식 타자기 (1950s Olympia SM-3):
+      // 정교한 기계식 놋쇠 활자봉이 종이와 고무 롤러를 경쾌하고 선명하게 때리는 클래식 "탁! 찰칵"
       if (isSpace) {
-        // Spacebar: Heavy carriage ratchet advance without typebar strike
-        triggerFilteredNoise(ctx, now, "bandpass", 950 * pitchMod, 2.2, 0.32, 0.038);
-        triggerTone(ctx, now, "triangle", 140 * pitchMod, 50, 0.24, 0.042);
+        triggerFilteredNoise(ctx, now, "bandpass", 920 * pitchMod, 2.5, 0.32, 0.035);
+        triggerTone(ctx, now, "triangle", 150 * pitchMod, 60, 0.22, 0.038);
       } else {
-        // 1. Sharp metallic typebar impact on paper/platen (1600Hz~2200Hz narrow bandpass)
-        triggerFilteredNoise(ctx, now, "bandpass", 1950 * pitchMod, 3.8, 0.45, 0.026);
-        // 2. Heavy steel platen roller body thud (180Hz -> 55Hz pitch drop)
-        triggerTone(ctx, now, "triangle", 185 * pitchMod, 55, 0.32, 0.036);
-        // 3. Crisp mechanical key-lever click & escapement rebound
-        triggerFilteredNoise(ctx, now + 0.008, "highpass", 3800 * pitchMod, 1.8, 0.22, 0.02);
-        triggerTone(ctx, now + 0.004, "sine", 850 * pitchMod, 380, 0.16, 0.018);
+        // 얇고 팽팽한 종이와 고무 롤러 타격음 (1850Hz)
+        triggerFilteredNoise(ctx, now, "bandpass", 1850 * pitchMod, 4.0, 0.45, 0.024);
+        // 고무 플래튼 롤러 바디의 탄력 있는 중저음 (210Hz -> 70Hz)
+        triggerTone(ctx, now, "triangle", 210 * pitchMod, 70, 0.28, 0.032);
+        // 정교한 톱니바퀴 에스케이프먼트(Escapement)의 경쾌한 찰칵
+        triggerFilteredNoise(ctx, now + 0.006, "highpass", 3900 * pitchMod, 2.2, 0.22, 0.018);
+        triggerTone(ctx, now + 0.004, "sine", 920 * pitchMod, 420, 0.15, 0.016);
       }
       break;
     }
     case "vintage-hermes": {
-      triggerFilteredNoise(ctx, now, "bandpass", 2650 * pitchMod, 3.2, 0.34, 0.024);
-      triggerTone(ctx, now, "square", 540 * pitchMod, 160, 0.12, 0.022);
-      triggerTone(ctx, now + 0.004, "sine", 210 * pitchMod, 110, 0.18, 0.028);
+      // 2. 포터블 타자기 (Hermes Baby):
+      // 초경량 알루미늄 바디의 가볍고 찰진 높은 피치의 "착! 칫!"
+      triggerFilteredNoise(ctx, now, "bandpass", 2700 * pitchMod, 3.4, 0.32, 0.022);
+      triggerTone(ctx, now, "square", 580 * pitchMod, 200, 0.1, 0.018);
+      triggerTone(ctx, now + 0.003, "sine", 240 * pitchMod, 120, 0.15, 0.024);
       break;
     }
     case "ibm-selectric": {
-      triggerFilteredNoise(ctx, now, "bandpass", 1450 * pitchMod, 1.8, 0.38, 0.038);
-      triggerTone(ctx, now, "sawtooth", 260 * pitchMod, 75, 0.2, 0.042);
-      triggerFilteredNoise(ctx, now + 0.012, "highpass", 3400, 1.2, 0.14, 0.018);
+      // 3. 전동 타자기 (IBM Selectric Typeball):
+      // 전동 모터 회전 + 전기 솔레노이드 기구가 Typeball 골프공 헤드를 강력하게 내리꽂는 묵직한 "철컥-탁!"
+      if (isSpace) {
+        // 전동 랙 어드밴스드
+        triggerFilteredNoise(ctx, now, "bandpass", 1100 * pitchMod, 2.2, 0.34, 0.035);
+        triggerTone(ctx, now, "sawtooth", 190 * pitchMod, 80, 0.24, 0.04);
+      } else {
+        // 1) 순간적인 전기 솔레노이드 작동 메커니즘 (전동 기계 래치)
+        triggerTone(ctx, now, "sawtooth", 340 * pitchMod, 95, 0.26, 0.038);
+        // 2) 회전형 골프공(Typeball) 헤드가 고속으로 플래튼을 때려박는 단단한 타격음
+        triggerFilteredNoise(ctx, now + 0.002, "bandpass", 1250 * pitchMod, 2.8, 0.44, 0.032);
+        // 3) 전동 파워 전달 기어 래칫의 메탈 스냅
+        triggerFilteredNoise(ctx, now + 0.008, "bandpass", 2600 * pitchMod, 2.4, 0.24, 0.02);
+        triggerTone(ctx, now + 0.004, "triangle", 160 * pitchMod, 55, 0.22, 0.042);
+      }
       break;
     }
     case "mech-blue": {
-      triggerFilteredNoise(ctx, now, "bandpass", 4600 * pitchMod, 5.5, 0.3, 0.014);
-      triggerTone(ctx, now, "sine", 3900 * pitchMod, 2200, 0.14, 0.012);
-      triggerTone(ctx, now + 0.006, "triangle", 380 * pitchMod, 150, 0.16, 0.026);
+      // 4. 기계식 청축 (Cherry MX Blue):
+      // 명확한 2단 클릭 재킷(Click Jacket)의 찰칵! 하는 고음 스냅
+      triggerFilteredNoise(ctx, now, "bandpass", 4800 * pitchMod, 6.0, 0.32, 0.014);
+      triggerTone(ctx, now, "sine", 4100 * pitchMod, 2400, 0.16, 0.012);
+      triggerTone(ctx, now + 0.005, "triangle", 360 * pitchMod, 140, 0.16, 0.024);
       break;
     }
     case "mech-brown": {
-      triggerFilteredNoise(ctx, now, "bandpass", 2100 * pitchMod, 2.8, 0.22, 0.022);
-      triggerTone(ctx, now, "triangle", 310 * pitchMod, 130, 0.18, 0.028);
+      // 5. 기계식 갈축 (Cherry MX Brown):
+      // 클릭음 없이 미세한 걸림과 부드러운 서걱-도각
+      triggerFilteredNoise(ctx, now, "bandpass", 1950 * pitchMod, 2.6, 0.22, 0.022);
+      triggerTone(ctx, now, "triangle", 310 * pitchMod, 130, 0.18, 0.026);
       break;
     }
     case "mech-red": {
-      triggerFilteredNoise(ctx, now, "lowpass", 1150 * pitchMod, 1.4, 0.2, 0.024);
-      triggerTone(ctx, now, "sine", 230 * pitchMod, 105, 0.18, 0.028);
+      // 6. 기계식 적축 (Cherry MX Red):
+      // 걸림 없는 리니어 스위치 특유의 폭신하고 먹먹하게 가라앉는 저음 바닥 침 (Muted Thud)
+      // 고음 클릭이 전혀 없고 중저역(550Hz Lowpass)으로 흡음 폼을 누르는 소리
+      triggerFilteredNoise(ctx, now, "lowpass", 550 * pitchMod, 1.2, 0.22, 0.026);
+      triggerTone(ctx, now, "sine", 165 * pitchMod, 65, 0.25, 0.034);
       break;
     }
     case "custom-thock": {
-      triggerFilteredNoise(ctx, now, "bandpass", 920 * pitchMod, 3.6, 0.28, 0.028);
-      triggerTone(ctx, now, "sine", 195 * pitchMod, 88, 0.3, 0.038);
-      triggerTone(ctx, now + 0.002, "triangle", 460 * pitchMod, 210, 0.15, 0.022);
+      // 7. 조약돌 도각 (Pebble Clack):
+      // 단단하고 매끄러운 2개의 조약돌이나 바둑알이 서로 경쾌하고 단단하게 부딪힐 때의 "딱! 또각!" 소리
+      // 고체 광물질 특유의 선명한 맑은 임팩트 + 짧은 미네랄 공명음
+      // 1) 돌 표면 충돌 순간의 극단적으로 날카롭고 단단한 광물 틱 (3400Hz)
+      triggerFilteredNoise(ctx, now, "bandpass", 3400 * pitchMod, 4.2, 0.36, 0.012);
+      // 2) 매끄러운 조약돌 몸통의 맑고 단단한 고유 공명음 (1380Hz -> 1050Hz)
+      triggerTone(ctx, now, "sine", 1380 * pitchMod, 1050, 0.34, 0.022);
+      // 3) 조약돌 2차 배음 핑 (2450Hz)
+      triggerTone(ctx, now + 0.001, "triangle", 2450 * pitchMod, 1850, 0.14, 0.015);
+      // 4) 손바닥과 돌 사이의 짧은 옹골찬 바디 사운드 (480Hz -> 280Hz)
+      triggerTone(ctx, now + 0.002, "sine", 480 * pitchMod, 280, 0.22, 0.018);
       break;
     }
     case "topre-raindrop": {
-      // Crystal-clear water droplet ("맑고 영롱한 물방울 소리")
-      const dropStart = (1350 + Math.random() * 220) * pitchMod;
-      const dropEnd = dropStart * 1.72; // upward chirping waterdrop glide
-      triggerTone(ctx, now, "sine", dropStart, dropEnd, 0.32, 0.052);
-      triggerTone(ctx, now + 0.003, "sine", dropStart * 1.98, dropEnd * 1.95, 0.09, 0.04);
-      triggerTone(ctx, now + 0.001, "triangle", 210 * pitchMod, 120, 0.14, 0.028);
+      // 8. 무접점 빗방울:
+      // 영롱하게 위로 솟아오르는 맑은 빗방울 물방울
+      const dropStart = (1380 + Math.random() * 200) * pitchMod;
+      const dropEnd = dropStart * 1.75;
+      triggerTone(ctx, now, "sine", dropStart, dropEnd, 0.32, 0.05);
+      triggerTone(ctx, now + 0.003, "sine", dropStart * 1.98, dropEnd * 1.95, 0.09, 0.038);
+      triggerTone(ctx, now + 0.001, "triangle", 200 * pitchMod, 110, 0.13, 0.026);
       break;
     }
     case "omm-waterdrop": {
-      // Pure harmonic droplet melody (Pentatonic, pure sine overtones)
+      // 9. 옴 물방울:
+      // 펜타토닉 음계의 화음 물방울
       const pentatonic = [587.33, 659.25, 783.99, 880.0, 1046.5, 1174.66, 1318.5];
       const baseNote =
         pentatonic[Math.floor(Math.random() * pentatonic.length)] * (isSpace ? 0.75 : 1);
@@ -199,23 +253,31 @@ export function playTypingSound(profile: TypingSoundProfile, key?: string): void
       break;
     }
     case "wood-keycap": {
-      triggerTone(ctx, now, "sine", 410 * pitchMod, 175, 0.24, 0.03);
-      triggerTone(ctx, now, "triangle", 820 * pitchMod, 390, 0.11, 0.018);
-      triggerFilteredNoise(ctx, now, "bandpass", 1250 * pitchMod, 4.5, 0.18, 0.02);
+      // 10. 우드 키캡:
+      // 목탁/나무 블록의 통통거리는 따뜻하고 단단한 원목 공명음
+      triggerTone(ctx, now, "sine", 440 * pitchMod, 180, 0.28, 0.028);
+      triggerTone(ctx, now, "triangle", 880 * pitchMod, 420, 0.14, 0.018);
+      triggerFilteredNoise(ctx, now, "bandpass", 1150 * pitchMod, 4.0, 0.18, 0.018);
       break;
     }
     case "vintage-underwood": {
-      // 1920s Antique Underwood Typewriter (Deep metallic impact & heavy iron chamber resonance)
+      // 11. 언더우드 타자기 (1920s Antique Underwood No. 5):
+      // 15kg 무거운 쇳덩어리 주철(Cast Iron) 몸체와 두꺼운 철제 활자대의 육중한 충격 + 쇠 스프링 핑
       if (isSpace) {
-        triggerFilteredNoise(ctx, now, "bandpass", 820 * pitchMod, 2.0, 0.35, 0.045);
-        triggerTone(ctx, now, "triangle", 115 * pitchMod, 45, 0.28, 0.048);
+        // 무거운 쇠 주철 캐리지 레일 덜컹
+        triggerFilteredNoise(ctx, now, "bandpass", 650 * pitchMod, 2.0, 0.38, 0.048);
+        triggerTone(ctx, now, "sawtooth", 110 * pitchMod, 40, 0.32, 0.052);
+        triggerMetallicRing(ctx, now + 0.005, 780 * pitchMod, 0.08, 0.04);
       } else {
-        // Heavy metallic clack
-        triggerFilteredNoise(ctx, now, "bandpass", 1680 * pitchMod, 3.2, 0.46, 0.032);
-        // Deep body resonance
-        triggerTone(ctx, now, "triangle", 155 * pitchMod, 48, 0.36, 0.042);
-        // Steel lever spring click
-        triggerFilteredNoise(ctx, now + 0.007, "highpass", 3200 * pitchMod, 1.6, 0.24, 0.022);
+        // 1) 묵직한 주철 몸통 전체를 흔드는 깊은 저음 충격 (135Hz -> 42Hz)
+        triggerTone(ctx, now, "triangle", 135 * pitchMod, 42, 0.42, 0.048);
+        // 2) 육중한 쇠 활자바의 거칠고 강한 쇳소리 타격 (980Hz 밴드패스)
+        triggerFilteredNoise(ctx, now, "bandpass", 980 * pitchMod, 2.4, 0.48, 0.038);
+        // 3) 앤틱 강철 스프링과 철제 레버의 금속성 링잉 (1550Hz, 2300Hz 메탈릭 핑)
+        triggerMetallicRing(ctx, now + 0.003, 1550 * pitchMod, 0.16, 0.042);
+        triggerMetallicRing(ctx, now + 0.005, 2320 * pitchMod, 0.09, 0.035);
+        // 4) 거친 기계식 래치 노이즈
+        triggerFilteredNoise(ctx, now + 0.01, "highpass", 2800 * pitchMod, 1.4, 0.22, 0.024);
       }
       break;
     }

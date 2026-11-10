@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Editor, EditorHandle } from "./components/Editor";
@@ -11,6 +11,9 @@ import { SettingsModal } from "./components/SettingsModal";
 import { Cheatsheet } from "./components/Cheatsheet";
 import { generateStandaloneHtml } from "./utils/htmlExporter";
 import { playTypingSound, playCarriageReturnBell } from "./utils/soundEffects";
+import { applyFocusSpotlightMask } from "./utils/focusMask";
+import { isHtmlFilename, sanitizeHtmlForPreview } from "./utils/htmlSanitizer";
+import menuAppIcon from "./assets/menu-app-icon.png";
 import {
   FileInfo,
   FolderTree,
@@ -18,52 +21,56 @@ import {
   AppSettings,
   DEFAULT_SETTINGS,
   TabItem,
+  FavoriteItem,
+  FavoritesState,
+  SavedSession,
 } from "./types";
 import "./App.css";
 
 const SETTINGS_STORAGE_KEY = "typomm_settings";
+const FAVORITES_STORAGE_KEY = "typomm_favorites";
+const SESSION_STORAGE_KEY = "typomm_session";
 
-function computeRelativeFilePath(
-  fromFilePath: string | null,
-  toFilePath: string,
-  rootFolderPath?: string | null
-): string {
-  const normalize = (p: string) => p.replace(/\\/g, "/");
-  const target = normalize(toFilePath);
-
-  let baseDir: string | null = null;
-  if (fromFilePath) {
-    const normFrom = normalize(fromFilePath);
-    const lastSlash = normFrom.lastIndexOf("/");
-    if (lastSlash >= 0) {
-      baseDir = normFrom.slice(0, lastSlash);
+function loadInitialSettings(): AppSettings {
+  try {
+    const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (saved) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
     }
-  } else if (rootFolderPath) {
-    baseDir = normalize(rootFolderPath).replace(/\/+$/, "");
+  } catch (e) {
+    console.error("설정 로드 실패:", e);
   }
+  return DEFAULT_SETTINGS;
+}
 
-  if (!baseDir) {
-    return target;
+function loadSavedSession(): SavedSession | null {
+  try {
+    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SavedSession;
+    if (parsed && Array.isArray(parsed.tabs)) {
+      return parsed;
+    }
+  } catch (e) {
+    console.error("세션 로드 실패:", e);
   }
+  return null;
+}
 
-  const fromParts = baseDir.split("/").filter(Boolean);
-  const toParts = target.split("/").filter(Boolean);
-
-  let commonLen = 0;
-  const minLen = Math.min(fromParts.length, toParts.length);
-  while (commonLen < minLen && fromParts[commonLen] === toParts[commonLen]) {
-    commonLen++;
+function loadSavedFavorites(): FavoritesState {
+  try {
+    const raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as FavoritesState;
+      return {
+        folders: Array.isArray(parsed.folders) ? parsed.folders : [],
+        files: Array.isArray(parsed.files) ? parsed.files : [],
+      };
+    }
+  } catch (e) {
+    console.error("즐겨찾기 로드 실패:", e);
   }
-
-  if (commonLen === 0) {
-    return target;
-  }
-
-  const upCount = fromParts.length - commonLen;
-  const downParts = toParts.slice(commonLen);
-  const relParts = [...Array(upCount).fill(".."), ...downParts];
-  const rel = relParts.join("/");
-  return upCount === 0 ? `./${rel}` : rel;
+  return { folders: [], files: [] };
 }
 
 function hexToRgba(hex: string, alpha: number): string {
@@ -99,44 +106,88 @@ Typora의 **실시간 인라인 위지윅(Live Preview)**과 OmmWriter의 **몰�
 `;
 
 export default function App() {
-  // Tabs State
-  const [tabs, setTabs] = useState<TabItem[]>([
-    {
-      id: "tab-1",
-      path: null,
-      name: "Typomm 환영 문서",
-      content: INITIAL_MARKDOWN,
-      isDirty: false,
-      isSourceMode: false,
-    },
-  ]);
-  const [activeTabId, setActiveTabId] = useState<string>("tab-1");
-
-  const [isOutlineOpen, setIsOutlineOpen] = useState<boolean>(false);
-  const [isTabsOpen, setIsTabsOpen] = useState<boolean>(true);
-  const [isFolderOpen, setIsFolderOpen] = useState<boolean>(false);
-  const [folderTree, setFolderTree] = useState<FolderTree | null>(null);
-  const [isDragOverEditor, setIsDragOverEditor] = useState<boolean>(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
-  const [isCheatsheetOpen, setIsCheatsheetOpen] = useState<boolean>(false);
+  const initialBootRef = useRef<{
+    settings: AppSettings;
+    session: SavedSession | null;
+  } | null>(null);
+  if (!initialBootRef.current) {
+    initialBootRef.current = {
+      settings: loadInitialSettings(),
+      session: loadSavedSession(),
+    };
+  }
+  const bootSettings = initialBootRef.current.settings;
+  const bootSession = initialBootRef.current.session;
 
   // Settings State with LocalStorage Persistence
-  const [settings, setSettings] = useState<AppSettings>(() => {
-    try {
-      const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
-      if (saved) {
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
-      }
-    } catch (e) {
-      console.error("설정 로드 실패:", e);
+  const [settings, setSettings] = useState<AppSettings>(bootSettings);
+
+  // Tabs State (이전 작업 복원 또는 환영 문서 설정 반영)
+  const [tabs, setTabs] = useState<TabItem[]>(() => {
+    if (bootSession) {
+      const restoredTabs = bootSettings.showWelcomeDoc
+        ? bootSession.tabs
+        : bootSession.tabs.filter(
+            (t) =>
+              !(
+                t.id === "tab-1" &&
+                t.path === null &&
+                !t.isDirty &&
+                t.name === "Typomm 환영 문서"
+              )
+          );
+      return restoredTabs.map((t) => ({
+        ...t,
+        fileType: t.fileType || (isHtmlFilename(t.path || t.name) ? "html" : "markdown"),
+      }));
     }
-    return DEFAULT_SETTINGS;
+    if (bootSettings.showWelcomeDoc) {
+      return [
+        {
+          id: "tab-1",
+          path: null,
+          name: "Typomm 환영 문서",
+          content: INITIAL_MARKDOWN,
+          isDirty: false,
+          isSourceMode: false,
+          fileType: "markdown",
+        },
+      ];
+    }
+    return [];
   });
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    if (bootSession) {
+      return bootSession.activeTabId || "";
+    }
+    return bootSettings.showWelcomeDoc ? "tab-1" : "";
+  });
+
+  const [isOutlineOpen, setIsOutlineOpen] = useState<boolean>(
+    bootSession ? Boolean(bootSession.isOutlineOpen) : false
+  );
+  const [isTabsOpen, setIsTabsOpen] = useState<boolean>(
+    bootSession ? Boolean(bootSession.isTabsOpen) : true
+  );
+  const [isFolderOpen, setIsFolderOpen] = useState<boolean>(
+    bootSession ? Boolean(bootSession.isFolderOpen) : false
+  );
+  const [folderTree, setFolderTree] = useState<FolderTree | null>(null);
+  const [favorites, setFavorites] = useState<FavoritesState>(loadSavedFavorites);
+  const [isDragOverEditor, setIsDragOverEditor] = useState<boolean>(false);
+  const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false);
+  const [pendingCloseTabId, setPendingCloseTabId] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [isCheatsheetOpen, setIsCheatsheetOpen] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [fsShowToolbar, setFsShowToolbar] = useState<boolean>(false);
+  const [fsHoverLeftOverlay, setFsHoverLeftOverlay] = useState<boolean>(false);
 
   const [outline, setOutline] = useState<OutlineItem[]>([]);
   const [stats, setStats] = useState<{ words: number; chars: number }>({ words: 0, chars: 0 });
 
   const editorRef = useRef<EditorHandle>(null);
+  const sourceTextareaRef = useRef<HTMLTextAreaElement>(null);
   const sourceTransformRef = useRef<{ tx: number; ty: number }>({ tx: 0, ty: 0 });
   const sourceGlidingRef = useRef<boolean>(false);
   const sourceGlideTimerRef = useRef<number | null>(null);
@@ -144,8 +195,24 @@ export default function App() {
   const sourceLastCompletedPosRef = useRef<number>(-1);
   const sourceLastLenRef = useRef<number>(0);
   const sourceLastBellLineRef = useRef<number>(-1);
+  const fsToolbarPinnedRef = useRef<boolean>(false);
+  const fsSidebarsPinnedRef = useRef<boolean>(false);
+  const fsSidebarGraceUntilRef = useRef<number>(0);
 
-  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+  const activeTab: TabItem | null = tabs.find((t) => t.id === activeTabId) || tabs[0] || null;
+
+  const isTabHtml = useCallback((tab: TabItem | null): boolean => {
+    if (!tab) return false;
+    return tab.fileType === "html" || isHtmlFilename(tab.path || tab.name);
+  }, []);
+
+  const isActiveTabHtml = isTabHtml(activeTab);
+  const isActiveHtmlWebView = Boolean(activeTab && isActiveTabHtml && !activeTab.isSourceMode);
+
+  const sanitizedHtmlPreview = useMemo(() => {
+    if (!isActiveHtmlWebView || !activeTab) return "";
+    return sanitizeHtmlForPreview(activeTab.content);
+  }, [isActiveHtmlWebView, activeTab]);
 
   const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
     setSettings((prev) => {
@@ -159,12 +226,169 @@ export default function App() {
     });
   }, []);
 
-  // Cycle Typewriter Mode: Off -> Mode 1 ("horizontal") -> Mode 2 ("vertical") -> Off
+  const updateFavorites = useCallback((updater: (prev: FavoritesState) => FavoritesState) => {
+    setFavorites((prev) => {
+      const next = updater(prev);
+      try {
+        localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(next));
+      } catch (e) {
+        console.error("즐겨찾기 저장 실패:", e);
+      }
+      return next;
+    });
+  }, []);
+
+  // Session Persistence (앱 재실행 시 이전 폴더 및 작업 문서들 그대로 복원)
+  const latestSessionRef = useRef<{
+    tabs: TabItem[];
+    activeTabId: string;
+    folderPath: string | null;
+    isFolderOpen: boolean;
+    isTabsOpen: boolean;
+    isOutlineOpen: boolean;
+  }>({
+    tabs,
+    activeTabId,
+    folderPath: folderTree?.root_path ?? bootSession?.folderPath ?? null,
+    isFolderOpen,
+    isTabsOpen,
+    isOutlineOpen,
+  });
+
+  latestSessionRef.current = {
+    tabs,
+    activeTabId,
+    folderPath: folderTree?.root_path ?? null,
+    isFolderOpen,
+    isTabsOpen,
+    isOutlineOpen,
+  };
+
+  const persistSessionNow = useCallback(() => {
+    try {
+      const snap = latestSessionRef.current;
+      const currentActive = snap.tabs.find((t) => t.id === snap.activeTabId) || snap.tabs[0] || null;
+      let syncedTabs = snap.tabs;
+
+      if (currentActive && !currentActive.isSourceMode && !isTabHtml(currentActive) && editorRef.current) {
+        const liveMd = editorRef.current.getMarkdown();
+        syncedTabs = snap.tabs.map((t) =>
+          t.id === currentActive.id ? { ...t, content: liveMd } : t
+        );
+      }
+
+      const payload: SavedSession = {
+        folderPath: snap.folderPath,
+        tabs: syncedTabs,
+        activeTabId: snap.activeTabId,
+        isFolderOpen: snap.isFolderOpen,
+        isTabsOpen: snap.isTabsOpen,
+        isOutlineOpen: snap.isOutlineOpen,
+      };
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      console.error("세션 저장 실패:", e);
+    }
+  }, [isTabHtml]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      persistSessionNow();
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [tabs, activeTabId, folderTree, isFolderOpen, isTabsOpen, isOutlineOpen, persistSessionNow]);
+
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      persistSessionNow();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    let unlistenClose: (() => void) | undefined;
+    getCurrentWindow()
+      .onCloseRequested(() => {
+        persistSessionNow();
+      })
+      .then((fn) => {
+        unlistenClose = fn;
+      })
+      .catch(() => {});
+
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      if (unlistenClose) unlistenClose();
+    };
+  }, [persistSessionNow]);
+
+  // Restore previous folder & clean file contents on startup
+  useEffect(() => {
+    const session = bootSession;
+    if (!session) return;
+
+    if (session.folderPath) {
+      invoke<FolderTree>("read_folder_tree", { path: session.folderPath })
+        .then((tree) => setFolderTree(tree))
+        .catch(() => {});
+    }
+
+    const cleanSavedTabs = session.tabs.filter((t) => t.path && !t.isDirty);
+    if (cleanSavedTabs.length > 0) {
+      Promise.all(
+        cleanSavedTabs.map(async (t) => {
+          try {
+            const info = await invoke<FileInfo>("read_file", { path: t.path! });
+            return { id: t.id, content: info.content, name: info.name };
+          } catch {
+            return null;
+          }
+        })
+      ).then((results) => {
+        const updates = new Map<string, { content: string; name: string }>();
+        for (const r of results) {
+          if (r) updates.set(r.id, { content: r.content, name: r.name });
+        }
+        if (updates.size === 0) return;
+
+        setTabs((prev) =>
+          prev.map((t) => {
+            const u = updates.get(t.id);
+            if (!u || t.isDirty) return t;
+            return { ...t, content: u.content, name: u.name };
+          })
+        );
+
+        const activeUpd = updates.get(session.activeTabId);
+        if (activeUpd) {
+          const activeOrig = session.tabs.find((t) => t.id === session.activeTabId);
+          if (activeOrig && !activeOrig.isSourceMode && !isTabHtml(activeOrig)) {
+            setTimeout(() => {
+              editorRef.current?.setMarkdown(activeUpd.content);
+            }, 30);
+          }
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Update stats/outline when viewing HTML WebView tab
+  useEffect(() => {
+    if (!isActiveHtmlWebView || !activeTab) return;
+    const plain = activeTab.content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const chars = plain.length;
+    const words = plain ? plain.split(/\s+/).length : 0;
+    setStats({ words, chars });
+    setOutline([]);
+  }, [isActiveHtmlWebView, activeTab]);
+
+  // Cycle Typewriter Mode: Off -> Mode 1 ("horizontal") -> Mode 2 ("vertical") -> Mode 3 ("focus") -> Off
   const handleCycleTypewriter = useCallback(() => {
     if (!settings.typewriterMode) {
       updateSettings({ typewriterMode: true, typewriterStyle: "horizontal" });
     } else if (settings.typewriterStyle === "horizontal") {
       updateSettings({ typewriterMode: true, typewriterStyle: "vertical" });
+    } else if (settings.typewriterStyle === "vertical") {
+      updateSettings({ typewriterMode: true, typewriterStyle: "focus" });
     } else {
       updateSettings({ typewriterMode: false });
     }
@@ -179,16 +403,38 @@ export default function App() {
 
   // Tab Operations
   const handleNewTab = useCallback(() => {
-    const currentMarkdown = activeTab.isSourceMode
-      ? activeTab.content
-      : editorRef.current?.getMarkdown() ?? activeTab.content;
     const newTabId = `tab-${Date.now()}`;
-    const newTabName = `제목 없음 ${tabs.length + 1}`;
+    const newTabName = tabs.length === 0 ? "제목 없음" : `제목 없음 ${tabs.length + 1}`;
     const newTabContent = "# 제목 없음\n\n";
+
+    if (!activeTab) {
+      setTabs([
+        {
+          id: newTabId,
+          path: null,
+          name: newTabName,
+          content: newTabContent,
+          isDirty: false,
+          isSourceMode: false,
+          fileType: "markdown",
+        },
+      ]);
+      setActiveTabId(newTabId);
+      setTimeout(() => {
+        editorRef.current?.setMarkdown(newTabContent);
+        editorRef.current?.focus();
+      }, 20);
+      return;
+    }
+
+    const currentContent =
+      activeTab.isSourceMode || isTabHtml(activeTab)
+        ? activeTab.content
+        : editorRef.current?.getMarkdown() ?? activeTab.content;
 
     setTabs((prev) => {
       const updated = prev.map((t) =>
-        t.id === activeTabId ? { ...t, content: currentMarkdown } : t
+        t.id === activeTabId ? { ...t, content: currentContent } : t
       );
       return [
         ...updated,
@@ -199,6 +445,7 @@ export default function App() {
           content: newTabContent,
           isDirty: false,
           isSourceMode: false,
+          fileType: "markdown",
         },
       ];
     });
@@ -208,33 +455,62 @@ export default function App() {
       editorRef.current?.setMarkdown(newTabContent);
       editorRef.current?.focus();
     }, 10);
-  }, [activeTabId, activeTab.isSourceMode, activeTab.content, tabs.length]);
+  }, [activeTabId, activeTab, tabs.length, isTabHtml]);
 
   const handleSelectTab = useCallback(
     (targetId: string) => {
       if (targetId === activeTabId) return;
 
-      const currentMarkdown = activeTab.isSourceMode
-        ? activeTab.content
-        : editorRef.current?.getMarkdown() ?? activeTab.content;
+      const currentContent = activeTab
+        ? activeTab.isSourceMode || isTabHtml(activeTab)
+          ? activeTab.content
+          : editorRef.current?.getMarkdown() ?? activeTab.content
+        : "";
 
       const targetTab = tabs.find((t) => t.id === targetId);
       if (!targetTab) return;
 
       setTabs((prev) =>
-        prev.map((t) => (t.id === activeTabId ? { ...t, content: currentMarkdown } : t))
+        prev.map((t) => (t.id === activeTabId ? { ...t, content: currentContent } : t))
       );
 
       setActiveTabId(targetId);
 
-      if (!targetTab.isSourceMode) {
-        editorRef.current?.setMarkdown(targetTab.content);
+      if (!targetTab.isSourceMode && !isTabHtml(targetTab)) {
         setTimeout(() => {
+          editorRef.current?.setMarkdown(targetTab.content);
           editorRef.current?.focus();
         }, 10);
       }
     },
-    [activeTabId, activeTab.isSourceMode, activeTab.content, tabs]
+    [activeTabId, activeTab, tabs, isTabHtml]
+  );
+
+  const performCloseTab = useCallback(
+    (targetId: string) => {
+      const closingIndex = tabs.findIndex((t) => t.id === targetId);
+      const remainingTabs = tabs.filter((t) => t.id !== targetId);
+      setTabs(remainingTabs);
+
+      if (remainingTabs.length === 0) {
+        setActiveTabId("");
+        setOutline([]);
+        setStats({ words: 0, chars: 0 });
+        return;
+      }
+
+      if (targetId === activeTabId) {
+        const nextIndex = Math.min(closingIndex, remainingTabs.length - 1);
+        const nextTab = remainingTabs[nextIndex];
+        setActiveTabId(nextTab.id);
+        if (!nextTab.isSourceMode && !isTabHtml(nextTab)) {
+          setTimeout(() => {
+            editorRef.current?.setMarkdown(nextTab.content);
+          }, 10);
+        }
+      }
+    },
+    [tabs, activeTabId, isTabHtml]
   );
 
   const handleCloseTab = useCallback(
@@ -248,44 +524,76 @@ export default function App() {
       if (!targetTab) return;
 
       if (targetTab.isDirty) {
-        const confirmClose = window.confirm(
-          `"${targetTab.name}"에 저장되지 않은 변경사항이 있습니다. 닫으시겠습니까?`
-        );
-        if (!confirmClose) return;
-      }
-
-      if (tabs.length <= 1) {
-        const emptyTab: TabItem = {
-          id: `tab-${Date.now()}`,
-          path: null,
-          name: "제목 없음",
-          content: "# 제목 없음\n\n",
-          isDirty: false,
-          isSourceMode: false,
-        };
-        setTabs([emptyTab]);
-        setActiveTabId(emptyTab.id);
-        editorRef.current?.setMarkdown(emptyTab.content);
+        setPendingCloseTabId(targetId);
         return;
       }
 
-      const closingIndex = tabs.findIndex((t) => t.id === targetId);
-      const remainingTabs = tabs.filter((t) => t.id !== targetId);
-      setTabs(remainingTabs);
+      performCloseTab(targetId);
+    },
+    [tabs, performCloseTab]
+  );
 
-      if (targetId === activeTabId) {
-        const nextIndex = Math.min(closingIndex, remainingTabs.length - 1);
-        const nextTab = remainingTabs[nextIndex];
-        setActiveTabId(nextTab.id);
-        if (!nextTab.isSourceMode) {
-          setTimeout(() => {
-            editorRef.current?.setMarkdown(nextTab.content);
-          }, 10);
+  const handleConfirmSaveAndClose = useCallback(async () => {
+    if (!pendingCloseTabId) return;
+    const targetTab = tabs.find((t) => t.id === pendingCloseTabId);
+    if (!targetTab) {
+      setPendingCloseTabId(null);
+      return;
+    }
+
+    const contentToSave =
+      targetTab.id === activeTabId && !targetTab.isSourceMode && !isTabHtml(targetTab)
+        ? editorRef.current?.getMarkdown() ?? targetTab.content
+        : targetTab.content;
+
+    try {
+      if (targetTab.path) {
+        await invoke("save_file", {
+          path: targetTab.path,
+          content: contentToSave,
+        });
+        setPendingCloseTabId(null);
+        performCloseTab(targetTab.id);
+      } else {
+        const res = await invoke<FileInfo | null>("save_file_as_dialog", {
+          defaultName: targetTab.name.endsWith(".md") ? targetTab.name : `${targetTab.name}.md`,
+          defaultDir: folderTree?.root_path ?? null,
+          content: contentToSave,
+        });
+        if (res) {
+          setPendingCloseTabId(null);
+          performCloseTab(targetTab.id);
+          if (folderTree?.root_path) {
+            invoke<FolderTree>("read_folder_tree", { path: folderTree.root_path })
+              .then(setFolderTree)
+              .catch(() => {});
+          }
+        } else {
+          // 저장 대화상자에서 취소한 경우 편집 화면으로 복귀
+          setPendingCloseTabId(null);
         }
       }
-    },
-    [tabs, activeTabId]
-  );
+    } catch (err) {
+      console.error("문서 저장 실패:", err);
+      alert(`문서 저장 실패: ${err}`);
+    }
+  }, [pendingCloseTabId, tabs, activeTabId, performCloseTab, isTabHtml, folderTree?.root_path]);
+
+  const handleConfirmDiscardAndClose = useCallback(() => {
+    if (!pendingCloseTabId) return;
+    const targetId = pendingCloseTabId;
+    setPendingCloseTabId(null);
+    performCloseTab(targetId);
+  }, [pendingCloseTabId, performCloseTab]);
+
+  const handleCancelCloseTab = useCallback(() => {
+    setPendingCloseTabId(null);
+    setTimeout(() => {
+      if (activeTab && !activeTab.isSourceMode && !isTabHtml(activeTab)) {
+        editorRef.current?.focus();
+      }
+    }, 10);
+  }, [activeTab, isTabHtml]);
 
   const handleOpen = useCallback(async () => {
     try {
@@ -297,7 +605,10 @@ export default function App() {
           return;
         }
 
+        const openedIsHtml = isHtmlFilename(res.path || res.name);
+
         if (
+          activeTab &&
           !activeTab.path &&
           !activeTab.isDirty &&
           (activeTab.content.trim() === "" || activeTab.content === "# 제목 없음\n\n")
@@ -305,13 +616,31 @@ export default function App() {
           setTabs((prev) =>
             prev.map((t) =>
               t.id === activeTab.id
-                ? { ...t, path: res.path, name: res.name, content: res.content, isDirty: false }
+                ? {
+                    ...t,
+                    path: res.path,
+                    name: res.name,
+                    content: res.content,
+                    isDirty: false,
+                    isSourceMode: false,
+                    fileType: openedIsHtml ? "html" : "markdown",
+                  }
                 : t
             )
           );
-          editorRef.current?.setMarkdown(res.content);
+          if (!openedIsHtml) {
+            setTimeout(() => {
+              editorRef.current?.setMarkdown(res.content);
+            }, 20);
+          }
           return;
         }
+
+        const currentContent = activeTab
+          ? activeTab.isSourceMode || isTabHtml(activeTab)
+            ? activeTab.content
+            : editorRef.current?.getMarkdown() ?? activeTab.content
+          : "";
 
         const newTabId = `tab-${Date.now()}`;
         const newTab: TabItem = {
@@ -321,94 +650,141 @@ export default function App() {
           content: res.content,
           isDirty: false,
           isSourceMode: false,
+          fileType: openedIsHtml ? "html" : "markdown",
         };
 
-        setTabs((prev) => [...prev, newTab]);
+        setTabs((prev) => [
+          ...prev.map((t) => (t.id === activeTabId ? { ...t, content: currentContent } : t)),
+          newTab,
+        ]);
         setActiveTabId(newTabId);
-        setTimeout(() => {
-          editorRef.current?.setMarkdown(res.content);
-        }, 10);
+        if (!openedIsHtml) {
+          setTimeout(() => {
+            editorRef.current?.setMarkdown(res.content);
+          }, 20);
+        }
       }
     } catch (err) {
       console.error("문서 열기 실패:", err);
       alert(`문서 열기 실패: ${err}`);
     }
-  }, [tabs, activeTab, handleSelectTab]);
+  }, [tabs, activeTab, activeTabId, handleSelectTab, isTabHtml]);
 
   const handleSave = useCallback(async () => {
-    const currentMarkdown = activeTab.isSourceMode
-      ? activeTab.content
-      : editorRef.current?.getMarkdown() || activeTab.content;
+    if (!activeTab) return;
+    const currentContent =
+      activeTab.isSourceMode || isTabHtml(activeTab)
+        ? activeTab.content
+        : editorRef.current?.getMarkdown() || activeTab.content;
 
     try {
       if (activeTab.path) {
         await invoke("save_file", {
           path: activeTab.path,
-          content: currentMarkdown,
+          content: currentContent,
         });
         setTabs((prev) =>
-          prev.map((t) => (t.id === activeTab.id ? { ...t, content: currentMarkdown, isDirty: false } : t))
+          prev.map((t) => (t.id === activeTab.id ? { ...t, content: currentContent, isDirty: false } : t))
         );
       } else {
         const res = await invoke<FileInfo | null>("save_file_as_dialog", {
           defaultName: activeTab.name.endsWith(".md") ? activeTab.name : `${activeTab.name}.md`,
-          content: currentMarkdown,
+          defaultDir: folderTree?.root_path ?? null,
+          content: currentContent,
         });
         if (res) {
           setTabs((prev) =>
             prev.map((t) =>
               t.id === activeTab.id
-                ? { ...t, path: res.path, name: res.name, content: currentMarkdown, isDirty: false }
+                ? {
+                    ...t,
+                    path: res.path,
+                    name: res.name,
+                    content: currentContent,
+                    isDirty: false,
+                    fileType: isHtmlFilename(res.path || res.name) ? "html" : "markdown",
+                  }
                 : t
             )
           );
+          if (folderTree?.root_path) {
+            invoke<FolderTree>("read_folder_tree", { path: folderTree.root_path })
+              .then(setFolderTree)
+              .catch(() => {});
+          }
         }
       }
     } catch (err) {
       console.error("문서 저장 실패:", err);
       alert(`문서 저장 실패: ${err}`);
     }
-  }, [activeTab]);
+  }, [activeTab, isTabHtml, folderTree?.root_path]);
 
   const handleSaveAs = useCallback(async () => {
-    const currentMarkdown = activeTab.isSourceMode
-      ? activeTab.content
-      : editorRef.current?.getMarkdown() || activeTab.content;
+    if (!activeTab) return;
+    const currentContent =
+      activeTab.isSourceMode || isTabHtml(activeTab)
+        ? activeTab.content
+        : editorRef.current?.getMarkdown() || activeTab.content;
 
     try {
       const res = await invoke<FileInfo | null>("save_file_as_dialog", {
-        defaultName: activeTab.name.endsWith(".md") ? activeTab.name : `${activeTab.name}.md`,
-        content: currentMarkdown,
+        defaultName:
+          activeTab.name.endsWith(".md") || isHtmlFilename(activeTab.name)
+            ? activeTab.name
+            : `${activeTab.name}.md`,
+        defaultDir: folderTree?.root_path ?? null,
+        content: currentContent,
       });
       if (res) {
         setTabs((prev) =>
           prev.map((t) =>
             t.id === activeTab.id
-              ? { ...t, path: res.path, name: res.name, content: currentMarkdown, isDirty: false }
+              ? {
+                  ...t,
+                  path: res.path,
+                  name: res.name,
+                  content: currentContent,
+                  isDirty: false,
+                  fileType: isHtmlFilename(res.path || res.name) ? "html" : "markdown",
+                }
               : t
           )
         );
+        if (folderTree?.root_path) {
+          invoke<FolderTree>("read_folder_tree", { path: folderTree.root_path })
+            .then(setFolderTree)
+            .catch(() => {});
+        }
       }
     } catch (err) {
       console.error("다른 이름으로 저장 실패:", err);
       alert(`다른 이름으로 저장 실패: ${err}`);
     }
-  }, [activeTab]);
+  }, [activeTab, isTabHtml, folderTree?.root_path]);
 
   const handleToggleSourceMode = useCallback(() => {
-    const md = editorRef.current?.getMarkdown() || activeTab.content;
+    if (!activeTab) return;
+    const htmlTab = isTabHtml(activeTab);
+    const content = htmlTab
+      ? activeTab.content
+      : activeTab.isSourceMode
+      ? activeTab.content
+      : editorRef.current?.getMarkdown() || activeTab.content;
     const newSourceMode = !activeTab.isSourceMode;
 
     setTabs((prev) =>
-      prev.map((t) => (t.id === activeTab.id ? { ...t, content: md, isSourceMode: newSourceMode } : t))
+      prev.map((t) =>
+        t.id === activeTab.id ? { ...t, content, isSourceMode: newSourceMode } : t
+      )
     );
 
-    if (!newSourceMode) {
+    if (!newSourceMode && !htmlTab) {
       setTimeout(() => {
-        editorRef.current?.setMarkdown(md);
-      }, 0);
+        editorRef.current?.setMarkdown(content);
+      }, 10);
     }
-  }, [activeTab]);
+  }, [activeTab, isTabHtml]);
 
   const handleToggleOutline = () => {
     setIsOutlineOpen((prev) => !prev);
@@ -435,6 +811,116 @@ export default function App() {
     }
   }, []);
 
+  const handleOpenFolderByPath = useCallback(async (folderPath: string) => {
+    try {
+      const res = await invoke<FolderTree>("read_folder_tree", {
+        path: folderPath,
+      });
+      setFolderTree(res);
+      setIsFolderOpen(true);
+    } catch (err) {
+      console.error("즐겨찾기 폴더 열기 실패:", err);
+      alert(`폴더를 열 수 없습니다: ${err}`);
+    }
+  }, []);
+
+  const handleToggleFavoriteFolder = useCallback(
+    (item: FavoriteItem) => {
+      updateFavorites((prev) => {
+        const exists = prev.folders.some((f) => f.path === item.path);
+        return {
+          ...prev,
+          folders: exists
+            ? prev.folders.filter((f) => f.path !== item.path)
+            : [item, ...prev.folders],
+        };
+      });
+    },
+    [updateFavorites]
+  );
+
+  const handleRemoveFavoriteFolder = useCallback(
+    (path: string) => {
+      updateFavorites((prev) => ({
+        ...prev,
+        folders: prev.folders.filter((f) => f.path !== path),
+      }));
+    },
+    [updateFavorites]
+  );
+
+  const handleToggleFavoriteTab = useCallback(
+    async (tab: TabItem) => {
+      if (!tab.path) {
+        // 저장되지 않은 새 문서는 먼저 저장 후 즐겨찾기에 등록
+        const contentToSave =
+          tab.id === activeTabId && !tab.isSourceMode && !isTabHtml(tab)
+            ? editorRef.current?.getMarkdown() ?? tab.content
+            : tab.content;
+        try {
+          const res = await invoke<FileInfo | null>("save_file_as_dialog", {
+            defaultName: tab.name.endsWith(".md") ? tab.name : `${tab.name}.md`,
+            defaultDir: folderTree?.root_path ?? null,
+            content: contentToSave,
+          });
+          if (!res) return;
+          setTabs((prev) =>
+            prev.map((t) =>
+              t.id === tab.id
+                ? {
+                    ...t,
+                    path: res.path,
+                    name: res.name,
+                    content: contentToSave,
+                    isDirty: false,
+                    fileType: isHtmlFilename(res.path || res.name) ? "html" : "markdown",
+                  }
+                : t
+            )
+          );
+          updateFavorites((prev) => {
+            if (prev.files.some((f) => f.path === res.path)) return prev;
+            return {
+              ...prev,
+              files: [{ name: res.name, path: res.path }, ...prev.files],
+            };
+          });
+          if (folderTree?.root_path) {
+            invoke<FolderTree>("read_folder_tree", { path: folderTree.root_path })
+              .then(setFolderTree)
+              .catch(() => {});
+          }
+        } catch (err) {
+          console.error("문서 저장 실패:", err);
+        }
+        return;
+      }
+
+      const targetPath = tab.path;
+      const targetName = tab.name;
+      updateFavorites((prev) => {
+        const exists = prev.files.some((f) => f.path === targetPath);
+        return {
+          ...prev,
+          files: exists
+            ? prev.files.filter((f) => f.path !== targetPath)
+            : [{ name: targetName, path: targetPath }, ...prev.files],
+        };
+      });
+    },
+    [activeTabId, isTabHtml, updateFavorites, folderTree?.root_path]
+  );
+
+  const handleRemoveFavoriteFile = useCallback(
+    (path: string) => {
+      updateFavorites((prev) => ({
+        ...prev,
+        files: prev.files.filter((f) => f.path !== path),
+      }));
+    },
+    [updateFavorites]
+  );
+
   const handleRefreshFolder = useCallback(async () => {
     if (!folderTree) return;
     try {
@@ -457,8 +943,10 @@ export default function App() {
         }
 
         const res = await invoke<FileInfo>("read_file", { path: filePath });
+        const openedIsHtml = isHtmlFilename(res.path || res.name);
 
         if (
+          activeTab &&
           !activeTab.path &&
           !activeTab.isDirty &&
           (activeTab.content.trim() === "" || activeTab.content === "# 제목 없음\n\n")
@@ -466,17 +954,31 @@ export default function App() {
           setTabs((prev) =>
             prev.map((t) =>
               t.id === activeTab.id
-                ? { ...t, path: res.path, name: res.name, content: res.content, isDirty: false }
+                ? {
+                    ...t,
+                    path: res.path,
+                    name: res.name,
+                    content: res.content,
+                    isDirty: false,
+                    isSourceMode: false,
+                    fileType: openedIsHtml ? "html" : "markdown",
+                  }
                 : t
             )
           );
-          editorRef.current?.setMarkdown(res.content);
+          if (!openedIsHtml) {
+            setTimeout(() => {
+              editorRef.current?.setMarkdown(res.content);
+            }, 20);
+          }
           return;
         }
 
-        const currentMarkdown = activeTab.isSourceMode
-          ? activeTab.content
-          : editorRef.current?.getMarkdown() ?? activeTab.content;
+        const currentContent = activeTab
+          ? activeTab.isSourceMode || isTabHtml(activeTab)
+            ? activeTab.content
+            : editorRef.current?.getMarkdown() ?? activeTab.content
+          : "";
 
         const newTabId = `tab-${Date.now()}`;
         const newTab: TabItem = {
@@ -486,30 +988,33 @@ export default function App() {
           content: res.content,
           isDirty: false,
           isSourceMode: false,
+          fileType: openedIsHtml ? "html" : "markdown",
         };
 
         setTabs((prev) => [
-          ...prev.map((t) => (t.id === activeTabId ? { ...t, content: currentMarkdown } : t)),
+          ...prev.map((t) => (t.id === activeTabId ? { ...t, content: currentContent } : t)),
           newTab,
         ]);
         setActiveTabId(newTabId);
-        setTimeout(() => {
-          editorRef.current?.setMarkdown(res.content);
-        }, 10);
+        if (!openedIsHtml) {
+          setTimeout(() => {
+            editorRef.current?.setMarkdown(res.content);
+          }, 20);
+        }
       } catch (err) {
         console.error("파일 열기 실패:", err);
         alert(`파일 열기 실패: ${err}`);
       }
     },
-    [tabs, activeTab, activeTabId, handleSelectTab]
+    [tabs, activeTab, activeTabId, handleSelectTab, isTabHtml]
   );
 
-  // 폴더 트리에서 파일을 에디터로 드래그앤드롭 시 열려있는 문서에 링크 생성
+  // 폴더 트리에서 문서를 에디터로 드래그앤드롭 시 해당 문서 열기
   const handleEditorDragOver = useCallback((e: React.DragEvent<HTMLElement>) => {
     if (e.dataTransfer.types.includes("application/x-typomm-file")) {
       e.preventDefault();
       e.stopPropagation();
-      e.dataTransfer.dropEffect = "link";
+      e.dataTransfer.dropEffect = "copy";
       setIsDragOverEditor(true);
     }
   }, []);
@@ -518,6 +1023,22 @@ export default function App() {
     if (e.currentTarget === e.target || !e.currentTarget.contains(e.relatedTarget as Node)) {
       setIsDragOverEditor(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const onDragStart = () => setIsDraggingFile(true);
+    const onDragEnd = () => {
+      setIsDraggingFile(false);
+      setIsDragOverEditor(false);
+    };
+    window.addEventListener("dragstart", onDragStart);
+    window.addEventListener("dragend", onDragEnd);
+    window.addEventListener("drop", onDragEnd);
+    return () => {
+      window.removeEventListener("dragstart", onDragStart);
+      window.removeEventListener("dragend", onDragEnd);
+      window.removeEventListener("drop", onDragEnd);
+    };
   }, []);
 
   const handleEditorDrop = useCallback(
@@ -530,45 +1051,19 @@ export default function App() {
       setIsDragOverEditor(false);
 
       try {
-        const { name, path } = JSON.parse(raw) as { name: string; path: string };
-        const linkHref = computeRelativeFilePath(activeTab.path, path, folderTree?.root_path);
-        const markdownLink = `[${name}](${linkHref})`;
-
-        if (activeTab.isSourceMode) {
-          const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
-          if (textarea) {
-            const start = textarea.selectionStart ?? textarea.value.length;
-            const end = textarea.selectionEnd ?? textarea.value.length;
-            const oldText = textarea.value;
-            const newText = oldText.slice(0, start) + markdownLink + oldText.slice(end);
-            setTabs((prev) =>
-              prev.map((t) => (t.id === activeTabId ? { ...t, content: newText, isDirty: true } : t))
-            );
-            setTimeout(() => {
-              textarea.focus();
-              const nextPos = start + markdownLink.length;
-              textarea.setSelectionRange(nextPos, nextPos);
-            }, 10);
-          } else {
-            setTabs((prev) =>
-              prev.map((t) =>
-                t.id === activeTabId
-                  ? { ...t, content: t.content + "\n" + markdownLink, isDirty: true }
-                  : t
-              )
-            );
-          }
-        } else {
-          editorRef.current?.insertFileLink(name, linkHref, e.clientX, e.clientY);
+        const { path } = JSON.parse(raw) as { name: string; path: string };
+        if (path) {
+          handleOpenFileByPath(path);
         }
       } catch (err) {
-        console.error("드래그앤드롭 링크 생성 실패:", err);
+        console.error("드래그앤드롭 문서 열기 실패:", err);
       }
     },
-    [activeTab.path, activeTab.isSourceMode, activeTabId, folderTree?.root_path]
+    [handleOpenFileByPath]
   );
 
   const handleExportHtmlFile = useCallback(async () => {
+    if (!activeTab) return;
     let bodyHtml = "";
     if (editorRef.current) {
       if (activeTab.isSourceMode) {
@@ -583,17 +1078,24 @@ export default function App() {
     const defaultName = `${title}.html`;
 
     try {
-      await invoke<string | null>("export_html_dialog", {
+      const exportedPath = await invoke<string | null>("export_html_dialog", {
         defaultName,
+        defaultDir: folderTree?.root_path ?? null,
         content: fullHtml,
       });
+      if (exportedPath && folderTree?.root_path) {
+        invoke<FolderTree>("read_folder_tree", { path: folderTree.root_path })
+          .then(setFolderTree)
+          .catch(() => {});
+      }
     } catch (err) {
       console.error("HTML 내보내기 실패:", err);
       alert(`HTML 내보내기 실패: ${err}`);
     }
-  }, [activeTab, settings.theme]);
+  }, [activeTab, settings.theme, folderTree?.root_path]);
 
   const handleCopyHtmlCode = useCallback(async () => {
+    if (!activeTab) return;
     let bodyHtml = "";
     if (editorRef.current) {
       if (activeTab.isSourceMode) {
@@ -613,6 +1115,7 @@ export default function App() {
 
   const handleInsertSyntax = useCallback(
     (syntax: string) => {
+      if (!activeTab) return;
       if (activeTab.isSourceMode) {
         const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
         if (textarea) {
@@ -652,6 +1155,14 @@ export default function App() {
     [activeTab]
   );
 
+  // Source Code Mode Textarea Auto Resize to Content
+  const adjustSourceTextareaHeight = useCallback(() => {
+    const textarea = sourceTextareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "auto";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 80)}px`;
+  }, []);
+
   // Source Code Mode Typewriter Centering (Mode 1 & Mode 2 + Bell)
   const scheduleSourceTypewriterScroll = useCallback((forceGlide = false) => {
     if (!settings.typewriterMode) return;
@@ -662,7 +1173,7 @@ export default function App() {
       if (!textarea || !container || !viewport) return;
 
       textarea.style.height = "auto";
-      textarea.style.height = `${Math.max(textarea.scrollHeight, 400)}px`;
+      textarea.style.height = `${Math.max(textarea.scrollHeight, 80)}px`;
 
       const selectionEnd = textarea.selectionEnd;
       const fullText = textarea.value;
@@ -736,6 +1247,9 @@ export default function App() {
       if (settings.typewriterStyle === "vertical") {
         targetTx = Math.round(Math.max(0, (viewportRect.width - containerRect.width) / 2));
         targetTy = Math.round(viewportRect.height * 0.6 - caretYInContainer);
+      } else if (settings.typewriterStyle === "focus") {
+        targetTx = Math.round(Math.max(0, (viewportRect.width - containerRect.width) / 2));
+        targetTy = Math.round(viewportRect.height * 0.5 - caretYInContainer);
       } else {
         const targetCenterX = viewportRect.width / 2;
         const targetCenterY = viewportRect.height / 2;
@@ -761,7 +1275,10 @@ export default function App() {
       const deltaY = Math.abs(targetTy - lastTy);
 
       const isLineWrapOrJump =
-        forceGlide || deltaX > 60 || deltaY > 40 || (settings.typewriterStyle === "vertical" && deltaY > 10);
+        forceGlide ||
+        deltaX > 60 ||
+        deltaY > 40 ||
+        ((settings.typewriterStyle === "vertical" || settings.typewriterStyle === "focus") && deltaY > 10);
 
       if (isLineWrapOrJump) {
         container.style.transition = "transform 0.22s cubic-bezier(0.22, 1, 0.36, 1)";
@@ -773,6 +1290,9 @@ export default function App() {
           if (container) {
             container.style.transition = "none";
           }
+          if (textarea) {
+            textarea.style.transition = "none";
+          }
           sourceGlidingRef.current = false;
         }, 230);
       } else if (!sourceGlidingRef.current) {
@@ -781,6 +1301,15 @@ export default function App() {
 
       sourceTransformRef.current = { tx: targetTx, ty: targetTy };
       container.style.transform = `translate3d(${targetTx}px, ${targetTy}px, 0)`;
+
+      applyFocusSpotlightMask(
+        textarea,
+        settings.typewriterStyle === "focus",
+        viewportRect.height,
+        targetTy,
+        lineHeight,
+        isLineWrapOrJump || sourceGlidingRef.current
+      );
     });
   }, [
     settings.typewriterMode,
@@ -790,9 +1319,17 @@ export default function App() {
     settings.lineHeight,
   ]);
 
+  const activeIsSourceMode = activeTab?.isSourceMode ?? false;
+  const activeTabContent = activeTab?.content ?? "";
+  const hasActiveSidebarPanels = isFolderOpen || isTabsOpen || isOutlineOpen;
+
   useEffect(() => {
-    if (activeTab.isSourceMode) {
+    if (activeIsSourceMode) {
+      const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
       if (settings.typewriterMode) {
+        if (settings.typewriterStyle !== "focus") {
+          applyFocusSpotlightMask(textarea, false, 0, 0, 0, false);
+        }
         scheduleSourceTypewriterScroll(true);
       } else {
         const container = document.querySelector<HTMLElement>(".source-mode-container");
@@ -800,6 +1337,7 @@ export default function App() {
           container.style.transform = "";
           container.style.transition = "";
         }
+        applyFocusSpotlightMask(textarea, false, 0, 0, 0, false);
         sourceTransformRef.current = { tx: 0, ty: 0 };
         sourceLastCompletedPosRef.current = -1;
         sourceGlidingRef.current = false;
@@ -808,48 +1346,198 @@ export default function App() {
           sourceGlideTimerRef.current = null;
         }
       }
-    } else if (settings.typewriterMode) {
+    } else if (settings.typewriterMode && activeTab) {
       editorRef.current?.centerTypewriter();
     }
-  }, [activeTab.isSourceMode, settings.typewriterMode, settings.typewriterStyle, scheduleSourceTypewriterScroll]);
+  }, [activeIsSourceMode, activeTab, settings.typewriterMode, settings.typewriterStyle, scheduleSourceTypewriterScroll]);
 
-  // Enable smooth mouse wheel browsing in source mode typewriter
+  // Enable smooth mouse wheel browsing in source mode typewriter with bounded scroll range
   useEffect(() => {
     const viewport = document.querySelector<HTMLElement>(".editor-viewport");
     if (!viewport) return;
 
     const handleWheel = (e: WheelEvent) => {
-      if (!settings.typewriterMode || !activeTab.isSourceMode) return;
+      if (!settings.typewriterMode || !activeIsSourceMode) return;
       const container = document.querySelector<HTMLElement>(".source-mode-container");
       if (!container) return;
 
-      sourceTransformRef.current.ty -= e.deltaY;
+      const viewportH = viewport.clientHeight;
+      const contentH = container.offsetHeight;
+      const maxTy = viewportH * 0.5;
+      const minTy = Math.min(0, -(contentH - viewportH * 0.5));
+      const nextTy = sourceTransformRef.current.ty - e.deltaY;
+      sourceTransformRef.current.ty = Math.max(minTy, Math.min(maxTy, nextTy));
+
       container.style.transition = "none";
       container.style.transform = `translate3d(${sourceTransformRef.current.tx}px, ${sourceTransformRef.current.ty}px, 0)`;
+
+      if (settings.typewriterStyle === "focus") {
+        const textarea = container.querySelector<HTMLTextAreaElement>(".source-textarea");
+        if (textarea) {
+          const computed = window.getComputedStyle(textarea);
+          const lineHeight = parseFloat(computed.lineHeight) || settings.fontSize * settings.lineHeight;
+          applyFocusSpotlightMask(
+            textarea,
+            true,
+            viewportH,
+            sourceTransformRef.current.ty,
+            lineHeight,
+            false
+          );
+        }
+      }
     };
 
     viewport.addEventListener("wheel", handleWheel, { passive: true });
     return () => viewport.removeEventListener("wheel", handleWheel);
-  }, [settings.typewriterMode, activeTab.isSourceMode]);
+  }, [settings.typewriterMode, settings.typewriterStyle, settings.fontSize, settings.lineHeight, activeIsSourceMode]);
 
-  // Recenter on window resize
+  // Track Fullscreen State (macOS & Tauri window fullscreen + DOM fullscreen)
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let timer1: number | undefined;
+    let timer2: number | undefined;
+    const appWindow = getCurrentWindow();
+
+    const syncFullscreen = async () => {
+      try {
+        const fs = await appWindow.isFullscreen();
+        const domFs = Boolean(document.fullscreenElement);
+        setIsFullscreen(fs || domFs);
+      } catch {
+        setIsFullscreen(Boolean(document.fullscreenElement));
+      }
+    };
+
+    const scheduleSync = () => {
+      syncFullscreen();
+      if (timer1) clearTimeout(timer1);
+      if (timer2) clearTimeout(timer2);
+      // macOS 네이티브 전체화면 전환 애니메이션 직후 최종 상태 재확인
+      timer1 = window.setTimeout(syncFullscreen, 200);
+      timer2 = window.setTimeout(syncFullscreen, 600);
+    };
+
+    syncFullscreen();
+    if (settings.startInFullscreen) {
+      appWindow
+        .isFullscreen()
+        .then((fs) => {
+          if (!fs) {
+            return appWindow.setFullscreen(true).then(() => scheduleSync());
+          }
+        })
+        .catch(() => {});
+    }
+    window.addEventListener("resize", scheduleSync);
+    document.addEventListener("fullscreenchange", syncFullscreen);
+
+    appWindow
+      .onResized(() => {
+        scheduleSync();
+      })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => {});
+
+    return () => {
+      window.removeEventListener("resize", scheduleSync);
+      document.removeEventListener("fullscreenchange", syncFullscreen);
+      if (timer1) clearTimeout(timer1);
+      if (timer2) clearTimeout(timer2);
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  // Reset fullscreen overlays whenever fullscreen mode changes
+  useEffect(() => {
+    setFsShowToolbar(false);
+    setFsHoverLeftOverlay(false);
+    fsToolbarPinnedRef.current = false;
+    fsSidebarsPinnedRef.current = false;
+    fsSidebarGraceUntilRef.current = 0;
+  }, [isFullscreen]);
+
+  // Fullscreen Left-Edge Hover Detection:
+  // 전체 화면에서 툴바가 숨겨져 있을 때 마우스를 좌측면(clientX <= 14)으로 가져가면
+  // 툴바에서 활성화되어 있는 폴더·문서탭·목차만 왼쪽에 표시
+  useEffect(() => {
+    if (!isFullscreen) return;
+
+    if (fsShowToolbar || !hasActiveSidebarPanels) {
+      if (fsHoverLeftOverlay) {
+        setFsHoverLeftOverlay(false);
+      }
+      if (fsShowToolbar) return;
+    }
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+
+      if (!fsShowToolbar && hasActiveSidebarPanels) {
+        if (e.clientX <= 14) {
+          fsSidebarGraceUntilRef.current = Date.now() + 450;
+          setFsHoverLeftOverlay(true);
+        } else if (fsHoverLeftOverlay) {
+          const inSidebar = Boolean(target?.closest(".sidebar-panels-dock"));
+          if (inSidebar) {
+            fsSidebarGraceUntilRef.current = Date.now() + 300;
+          } else if (Date.now() > fsSidebarGraceUntilRef.current) {
+            setFsHoverLeftOverlay(false);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, [isFullscreen, fsShowToolbar, fsHoverLeftOverlay, hasActiveSidebarPanels]);
+
+  // Recenter on window resize, fullscreen toggle, or toolbar/sidebar visibility change
   useEffect(() => {
     const handleResize = () => {
-      if (settings.typewriterMode) {
-        if (activeTab.isSourceMode) {
+      if (settings.typewriterMode && activeTab) {
+        if (activeIsSourceMode) {
           scheduleSourceTypewriterScroll();
         } else {
           editorRef.current?.centerTypewriter();
         }
       }
     };
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [settings.typewriterMode, activeTab.isSourceMode, scheduleSourceTypewriterScroll]);
+  }, [
+    settings.typewriterMode,
+    activeTab,
+    activeIsSourceMode,
+    isFullscreen,
+    fsShowToolbar,
+    isFolderOpen,
+    isTabsOpen,
+    isOutlineOpen,
+    scheduleSourceTypewriterScroll,
+  ]);
 
   // Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (pendingCloseTabId) {
+          e.preventDefault();
+          handleCancelCloseTab();
+          return;
+        }
+        if (isFullscreen && (fsShowToolbar || fsHoverLeftOverlay)) {
+          e.preventDefault();
+          fsToolbarPinnedRef.current = false;
+          setFsShowToolbar(false);
+          setFsHoverLeftOverlay(false);
+          return;
+        }
+      }
+
       const isMeta = e.metaKey || e.ctrlKey;
       if (isMeta && e.key.toLowerCase() === "s") {
         e.preventDefault();
@@ -866,7 +1554,9 @@ export default function App() {
         handleNewTab();
       } else if (isMeta && e.key.toLowerCase() === "w") {
         e.preventDefault();
-        handleCloseTab(activeTabId);
+        if (activeTabId) {
+          handleCloseTab(activeTabId);
+        }
       } else if (isMeta && e.key === "/") {
         e.preventDefault();
         handleToggleSourceMode();
@@ -876,12 +1566,31 @@ export default function App() {
       } else if (e.key === "F9" || (isMeta && e.altKey && e.key.toLowerCase() === "t")) {
         e.preventDefault();
         handleCycleTypewriter();
+      } else if (e.key === "F10" || (isMeta && e.shiftKey && e.key.toLowerCase() === "h")) {
+        // 전체 화면에서 상단 버튼 영역(메뉴바) 보이기/숨기기 토글
+        if (isFullscreen) {
+          e.preventDefault();
+          setFsShowToolbar((prev) => {
+            const next = !prev;
+            fsToolbarPinnedRef.current = next;
+            return next;
+          });
+        }
+      } else if ((isMeta && e.key === "\\") || (isMeta && e.shiftKey && e.key.toLowerCase() === "l")) {
+        // 문서 탭 영역 보이기/숨기기 토글
+        e.preventDefault();
+        setIsTabsOpen((prev) => !prev);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
+    pendingCloseTabId,
+    isFullscreen,
+    fsShowToolbar,
+    fsHoverLeftOverlay,
+    handleCancelCloseTab,
     handleSave,
     handleSaveAs,
     handleOpen,
@@ -892,7 +1601,14 @@ export default function App() {
     handleCycleTypewriter,
   ]);
 
+  useEffect(() => {
+    if (activeIsSourceMode) {
+      adjustSourceTextareaHeight();
+    }
+  }, [activeIsSourceMode, activeTabId, activeTabContent, adjustSourceTextareaHeight]);
+
   const handleSourceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (!activeTab) return;
     const newContent = e.target.value;
     setTabs((prev) =>
       prev.map((t) => (t.id === activeTab.id ? { ...t, content: newContent, isDirty: true } : t))
@@ -921,10 +1637,13 @@ export default function App() {
   };
 
   const customEditorRgba = hexToRgba(settings.customEditorBgColor, settings.customEditorBgOpacity);
+  const pendingCloseTab = pendingCloseTabId ? tabs.find((t) => t.id === pendingCloseTabId) : null;
 
   return (
     <div
-      className={`app-root theme-${settings.theme}`}
+      className={`app-root theme-${settings.theme}${isFullscreen ? " is-fullscreen" : ""}${
+        fsShowToolbar ? " fs-show-toolbar" : ""
+      }${fsHoverLeftOverlay ? " fs-hover-left-overlay" : ""}`}
       style={
         {
           "--editor-font-size": `${settings.fontSize}px`,
@@ -940,14 +1659,42 @@ export default function App() {
         } as React.CSSProperties
       }
     >
+      {isFullscreen && (
+        <button
+          type="button"
+          className={`fullscreen-menu-toggle-btn ${fsShowToolbar ? "active" : ""}`}
+          onClick={() => {
+            setFsShowToolbar((prev) => {
+              const next = !prev;
+              fsToolbarPinnedRef.current = next;
+              return next;
+            });
+          }}
+          aria-label="메뉴버튼"
+          title={
+            fsShowToolbar
+              ? "메뉴버튼: 메뉴바 숨기기 (Cmd+Shift+H)"
+              : "메뉴버튼: 메뉴바 보이기 (Cmd+Shift+H)"
+          }
+        >
+          <img
+            src={menuAppIcon}
+            alt="메뉴버튼"
+            className="fullscreen-menu-icon"
+            draggable={false}
+          />
+        </button>
+      )}
+
       <Toolbar
-        fileName={activeTab.name}
-        isDirty={activeTab.isDirty}
-        isSourceMode={activeTab.isSourceMode}
+        fileName={activeTab?.name ?? "열린 문서 없음"}
+        isDirty={activeTab?.isDirty ?? false}
+        isSourceMode={activeTab?.isSourceMode ?? false}
         isOutlineOpen={isOutlineOpen}
         isTabsOpen={isTabsOpen}
         isFolderOpen={isFolderOpen}
         isCheatsheetOpen={isCheatsheetOpen}
+        paperMode={settings.paperMode}
         typewriterMode={settings.typewriterMode}
         typewriterStyle={settings.typewriterStyle}
         typingSound={settings.typingSound}
@@ -961,6 +1708,7 @@ export default function App() {
         onToggleTabs={handleToggleTabs}
         onToggleFolder={handleToggleFolder}
         onToggleCheatsheet={() => setIsCheatsheetOpen((prev) => !prev)}
+        onTogglePaperMode={() => updateSettings({ paperMode: !settings.paperMode })}
         onCycleTypewriter={handleCycleTypewriter}
         onSelectTypingSound={(sound) => updateSettings({ typingSound: sound })}
         onCenterWindow={handleCenterWindow}
@@ -971,115 +1719,188 @@ export default function App() {
 
       {/* Ulysses 스타일 좌측 다중 컬럼 레이아웃: 왼쪽에서부터 순서대로 [폴더] -> [문서 탭] -> [목차] -> [편집영역] */}
       <div className="main-layout">
-        {/* 1. 폴더 (가장 왼쪽) */}
-        {isFolderOpen && (
-          <FolderSidebar
-            folderTree={folderTree}
-            activeFilePath={activeTab.path}
-            onPickFolder={handlePickFolder}
-            onRefreshFolder={handleRefreshFolder}
-            onOpenFile={handleOpenFileByPath}
-            onClose={() => setIsFolderOpen(false)}
-          />
-        )}
+        <div className="sidebar-panels-dock">
+          {/* 1. 폴더 (가장 왼쪽) */}
+          {isFolderOpen && (
+            <FolderSidebar
+              folderTree={folderTree}
+              activeFilePath={activeTab?.path ?? null}
+              favoriteFolders={favorites.folders}
+              onPickFolder={handlePickFolder}
+              onRefreshFolder={handleRefreshFolder}
+              onOpenFile={handleOpenFileByPath}
+              onOpenFolderByPath={handleOpenFolderByPath}
+              onToggleFavoriteFolder={handleToggleFavoriteFolder}
+              onRemoveFavoriteFolder={handleRemoveFavoriteFolder}
+              onClose={() => setIsFolderOpen(false)}
+            />
+          )}
 
-        {/* 2. 문서 탭 (세로 탭 영역) */}
-        {isTabsOpen && (
-          <TabBar
-            tabs={tabs}
-            activeTabId={activeTabId}
-            onSelectTab={handleSelectTab}
-            onCloseTab={handleCloseTab}
-            onNewTab={handleNewTab}
-            onClosePanel={() => setIsTabsOpen(false)}
-          />
-        )}
+          {/* 2. 문서 탭 (세로 탭 영역) */}
+          {isTabsOpen && (
+            <TabBar
+              tabs={tabs}
+              activeTabId={activeTabId}
+              favoriteFiles={favorites.files}
+              currentFolderPath={folderTree?.root_path ?? null}
+              onSelectTab={handleSelectTab}
+              onCloseTab={handleCloseTab}
+              onNewTab={handleNewTab}
+              onOpenFavoriteFile={handleOpenFileByPath}
+              onToggleFavoriteTab={handleToggleFavoriteTab}
+              onRemoveFavoriteFile={handleRemoveFavoriteFile}
+              onClosePanel={() => setIsTabsOpen(false)}
+            />
+          )}
 
-        {/* 3. 문서내 목차 */}
-        {isOutlineOpen && (
-          <Outline
-            outline={outline}
-            onSelect={(pos) => {
-              if (activeTab.isSourceMode) {
-                const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
-                if (textarea) {
-                  textarea.focus();
-                  textarea.setSelectionRange(pos, pos);
+          {/* 3. 문서내 목차 */}
+          {isOutlineOpen && (
+            <Outline
+              outline={outline}
+              onSelect={(pos) => {
+                if (!activeTab) return;
+                if (activeTab.isSourceMode) {
+                  const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
+                  if (textarea) {
+                    textarea.focus();
+                    textarea.setSelectionRange(pos, pos);
+                  }
+                } else {
+                  editorRef.current?.scrollToHeading(pos);
                 }
-              } else {
-                editorRef.current?.scrollToHeading(pos);
-              }
-            }}
-            onClose={() => setIsOutlineOpen(false)}
-          />
-        )}
+              }}
+              onClose={() => setIsOutlineOpen(false)}
+            />
+          )}
+        </div>
 
         {/* 4. 편집영역 (메인 캔버스) */}
         <main
           className={`editor-viewport width-${settings.contentWidth} font-${settings.fontFamily} ${
-            settings.typewriterMode ? `typewriter-mode typewriter-${settings.typewriterStyle}` : ""
+            settings.paperMode ? "paper-mode" : ""
+          } ${
+            settings.typewriterMode && !isActiveHtmlWebView
+              ? `typewriter-mode typewriter-${settings.typewriterStyle}`
+              : ""
           } ${isDragOverEditor ? "drag-over-target" : ""}`}
           onDragOverCapture={handleEditorDragOver}
           onDragLeaveCapture={handleEditorDragLeave}
           onDropCapture={handleEditorDrop}
+          onMouseDown={() => {
+            if (isFullscreen && fsHoverLeftOverlay) {
+              setFsHoverLeftOverlay(false);
+            }
+          }}
         >
-          {activeTab.isSourceMode && (
-            <div className="source-mode-container">
-              <textarea
-                className="source-textarea"
-                style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineHeight }}
-                value={activeTab.content}
-                onChange={(e) => {
-                  handleSourceChange(e);
-                  scheduleSourceTypewriterScroll();
-                }}
-                onKeyDown={(e) => {
-                  if (!e.metaKey && !e.ctrlKey && !e.altKey && settings.typingSound !== "off") {
-                    playTypingSound(settings.typingSound, e.key);
-                  }
-                }}
-                onSelect={() => scheduleSourceTypewriterScroll()}
-                onKeyUp={() => scheduleSourceTypewriterScroll()}
-                onClick={() => scheduleSourceTypewriterScroll()}
-                onCompositionStart={() => {
-                  sourceComposingRef.current = true;
-                }}
-                onCompositionUpdate={() => {
-                  sourceComposingRef.current = true;
-                }}
-                onCompositionEnd={() => {
-                  sourceComposingRef.current = false;
-                  scheduleSourceTypewriterScroll();
-                }}
-                placeholder="마크다운 원본 내용을 입력하세요..."
-                autoFocus
-              />
+          {!activeTab ? (
+            <div className="empty-editor-state">
+              <div className="empty-editor-title">열려 있는 문서가 없습니다</div>
+              <div className="empty-editor-desc">
+                새 문서를 만들거나 기존 마크다운·HTML 문서를 열어 작업을 시작하세요.
+              </div>
+              <div className="empty-editor-actions">
+                <button type="button" className="empty-action-btn primary" onClick={handleNewTab}>
+                  새 문서 만들기 (Cmd+N)
+                </button>
+                <button type="button" className="empty-action-btn" onClick={handleOpen}>
+                  문서 열기 (Cmd+O)
+                </button>
+              </div>
             </div>
+          ) : (
+            <>
+              {isActiveHtmlWebView && (
+                <div className="html-webview-container">
+                  <div className="html-webview-banner">
+                    <span className="html-webview-badge">
+                      <span className="html-webview-dot" />
+                      HTML 안전 웹뷰 — JavaScript·iframe 등 위험 요소 차단됨
+                    </span>
+                    <button
+                      type="button"
+                      className="html-webview-source-btn"
+                      onClick={handleToggleSourceMode}
+                    >
+                      소스 코드 보기
+                    </button>
+                  </div>
+                  <iframe
+                    key={activeTab.id}
+                    className="html-webview-frame"
+                    sandbox=""
+                    srcDoc={sanitizedHtmlPreview}
+                    title={activeTab.name}
+                    style={{ pointerEvents: isDraggingFile ? "none" : "auto" }}
+                  />
+                </div>
+              )}
+
+              {activeTab.isSourceMode && (
+                <div className="source-mode-container">
+                  <textarea
+                    ref={sourceTextareaRef}
+                    className="source-textarea"
+                    style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineHeight }}
+                    value={activeTab.content}
+                    onChange={(e) => {
+                      handleSourceChange(e);
+                      scheduleSourceTypewriterScroll();
+                      adjustSourceTextareaHeight();
+                    }}
+                    onKeyDown={(e) => {
+                      if (!e.metaKey && !e.ctrlKey && !e.altKey && settings.typingSound !== "off") {
+                        playTypingSound(settings.typingSound, e.key);
+                      }
+                    }}
+                    onSelect={() => scheduleSourceTypewriterScroll()}
+                    onKeyUp={() => scheduleSourceTypewriterScroll()}
+                    onClick={() => scheduleSourceTypewriterScroll()}
+                    onCompositionStart={() => {
+                      sourceComposingRef.current = true;
+                    }}
+                    onCompositionUpdate={() => {
+                      sourceComposingRef.current = true;
+                    }}
+                    onCompositionEnd={() => {
+                      sourceComposingRef.current = false;
+                      scheduleSourceTypewriterScroll();
+                    }}
+                    placeholder={
+                      isActiveTabHtml
+                        ? "HTML 원본 소스 코드를 입력하세요..."
+                        : "마크다운 원본 내용을 입력하세요..."
+                    }
+                    autoFocus
+                  />
+                </div>
+              )}
+              <div
+                className="editor-wrapper"
+                style={{
+                  fontSize: `${settings.fontSize}px`,
+                  lineHeight: settings.lineHeight,
+                  display: activeTab.isSourceMode || isActiveHtmlWebView ? "none" : "block",
+                }}
+              >
+                <Editor
+                  ref={editorRef}
+                  initialContent={isActiveTabHtml ? "" : activeTab.content}
+                  typewriterMode={settings.typewriterMode && !isActiveHtmlWebView}
+                  typewriterStyle={settings.typewriterStyle}
+                  typewriterBell={settings.typewriterBell}
+                  typingSound={settings.typingSound}
+                  onChange={(md) => {
+                    if (isActiveTabHtml) return;
+                    setTabs((prev) =>
+                      prev.map((t) => (t.id === activeTabId ? { ...t, content: md, isDirty: true } : t))
+                    );
+                  }}
+                  onOutlineUpdate={setOutline}
+                  onStatsUpdate={setStats}
+                />
+              </div>
+            </>
           )}
-          <div
-            className="editor-wrapper"
-            style={{
-              fontSize: `${settings.fontSize}px`,
-              lineHeight: settings.lineHeight,
-              display: activeTab.isSourceMode ? "none" : "block",
-            }}
-          >
-            <Editor
-              ref={editorRef}
-              initialContent={activeTab.content}
-              typewriterMode={settings.typewriterMode}
-              typewriterStyle={settings.typewriterStyle}
-              typewriterBell={settings.typewriterBell}
-              typingSound={settings.typingSound}
-              onChange={(md) => {
-                setTabs((prev) =>
-                  prev.map((t) => (t.id === activeTabId ? { ...t, content: md, isDirty: true } : t))
-                );
-              }}
-              onOutlineUpdate={setOutline}
-              onStatsUpdate={setStats}
-            />
-          </div>
         </main>
 
         {isCheatsheetOpen && (
@@ -1093,12 +1914,13 @@ export default function App() {
       <StatusBar
         words={stats.words}
         chars={stats.chars}
-        isDirty={activeTab.isDirty}
-        isSourceMode={activeTab.isSourceMode}
+        isDirty={activeTab?.isDirty ?? false}
+        isSourceMode={activeTab?.isSourceMode ?? false}
+        isHtmlWebView={isActiveHtmlWebView}
         typewriterMode={settings.typewriterMode}
         typewriterStyle={settings.typewriterStyle}
         onToggleTypewriter={handleCycleTypewriter}
-        filePath={activeTab.path}
+        filePath={activeTab?.path ?? null}
       />
 
       <SettingsModal
@@ -1107,6 +1929,42 @@ export default function App() {
         onUpdateSettings={updateSettings}
         onClose={() => setIsSettingsOpen(false)}
       />
+
+      {pendingCloseTab && (
+        <div className="modal-backdrop" onClick={handleCancelCloseTab}>
+          <div className="unsaved-confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="unsaved-confirm-title">
+              "{pendingCloseTab.name}" 문서를 저장하지 않고 닫으시겠습니까?
+            </div>
+            <div className="unsaved-confirm-desc">
+              저장하지 않고 닫으면 편집한 변경사항이 사라집니다.
+            </div>
+            <div className="unsaved-confirm-actions">
+              <button
+                type="button"
+                className="confirm-action-btn primary-save"
+                onClick={handleConfirmSaveAndClose}
+              >
+                저장
+              </button>
+              <button
+                type="button"
+                className="confirm-action-btn danger-discard"
+                onClick={handleConfirmDiscardAndClose}
+              >
+                닫기
+              </button>
+              <button
+                type="button"
+                className="confirm-action-btn neutral-cancel"
+                onClick={handleCancelCloseTab}
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

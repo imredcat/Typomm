@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { FolderNode, FolderTree } from "../types";
+import React, { useState, useRef, useEffect } from "react";
+import { FavoriteItem, FolderNode, FolderTree } from "../types";
 import {
   Folder,
   FolderOpen,
@@ -10,14 +10,19 @@ import {
   RefreshCw,
   X,
   FolderSearch,
+  Star,
 } from "lucide-react";
 
 interface FolderSidebarProps {
   folderTree: FolderTree | null;
   activeFilePath: string | null;
+  favoriteFolders: FavoriteItem[];
   onPickFolder: () => void;
   onRefreshFolder: () => void;
   onOpenFile: (path: string) => void;
+  onOpenFolderByPath: (path: string) => void;
+  onToggleFavoriteFolder: (item: FavoriteItem) => void;
+  onRemoveFavoriteFolder: (path: string) => void;
   onClose: () => void;
 }
 
@@ -48,8 +53,8 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
       path: node.path,
     });
     e.dataTransfer.setData("application/x-typomm-file", payload);
-    e.dataTransfer.setData("text/plain", `[${node.name}](${node.path})`);
-    e.dataTransfer.effectAllowed = "copyLink";
+    e.dataTransfer.setData("text/plain", node.path);
+    e.dataTransfer.effectAllowed = "copy";
   };
 
   if (node.is_dir) {
@@ -96,7 +101,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
       draggable={true}
       onDragStart={handleDragStart}
       onDoubleClick={() => onOpenFile(node.path)}
-      title={`${node.name}\n더블클릭: 문서 열기 | 에디터로 드래그: 링크 삽입`}
+      title={`${node.name}\n더블클릭 또는 에디터로 드래그: 문서 열기`}
     >
       {isHtml ? (
         <FileCode size={14} className="tree-icon html-icon" />
@@ -111,11 +116,33 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 export const FolderSidebar: React.FC<FolderSidebarProps> = ({
   folderTree,
   activeFilePath,
+  favoriteFolders,
   onPickFolder,
   onRefreshFolder,
   onOpenFile,
+  onOpenFolderByPath,
+  onToggleFavoriteFolder,
+  onRemoveFavoriteFolder,
   onClose,
 }) => {
+  const [isFavOpen, setIsFavOpen] = useState<boolean>(false);
+  const favDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isFavOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (favDropdownRef.current && !favDropdownRef.current.contains(e.target as Node)) {
+        setIsFavOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isFavOpen]);
+
+  const isCurrentFolderFavorited = Boolean(
+    folderTree && favoriteFolders.some((f) => f.path === folderTree.root_path)
+  );
+
   return (
     <aside className="ulysses-column folder-sidebar">
       <div className="column-header">
@@ -133,14 +160,36 @@ export const FolderSidebar: React.FC<FolderSidebarProps> = ({
             <FolderSearch size={14} />
           </button>
           {folderTree && (
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={onRefreshFolder}
-              title="폴더 새로고침"
-            >
-              <RefreshCw size={13} />
-            </button>
+            <>
+              <button
+                type="button"
+                className={`icon-btn fav-header-btn ${isCurrentFolderFavorited ? "is-fav" : ""}`}
+                onClick={() =>
+                  onToggleFavoriteFolder({
+                    name: folderTree.root_name,
+                    path: folderTree.root_path,
+                  })
+                }
+                title={
+                  isCurrentFolderFavorited
+                    ? "현재 폴더 즐겨찾기 해제"
+                    : "현재 폴더 즐겨찾기 추가"
+                }
+              >
+                <Star
+                  size={13}
+                  fill={isCurrentFolderFavorited ? "currentColor" : "none"}
+                />
+              </button>
+              <button
+                type="button"
+                className="icon-btn"
+                onClick={onRefreshFolder}
+                title="폴더 새로고침"
+              >
+                <RefreshCw size={13} />
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -151,6 +200,85 @@ export const FolderSidebar: React.FC<FolderSidebarProps> = ({
             <X size={15} />
           </button>
         </div>
+      </div>
+
+      {/* 상단 즐겨찾기 드롭다운 바 */}
+      <div className="favorites-section" ref={favDropdownRef}>
+        <div className="favorites-header">
+          <button
+            type="button"
+            className={`favorites-dropdown-trigger ${isFavOpen ? "open" : ""}`}
+            onClick={() => setIsFavOpen((prev) => !prev)}
+            title="즐겨찾기 목록 열기"
+          >
+            <Star size={12} className="fav-title-star" fill="currentColor" />
+            <span>즐겨찾기 ({favoriteFolders.length})</span>
+            <ChevronDown
+              size={12}
+              className={`fav-chevron ${isFavOpen ? "rotated" : ""}`}
+            />
+          </button>
+
+          {folderTree && (
+            <button
+              type="button"
+              className={`fav-add-btn ${isCurrentFolderFavorited ? "added" : ""}`}
+              onClick={() =>
+                onToggleFavoriteFolder({
+                  name: folderTree.root_name,
+                  path: folderTree.root_path,
+                })
+              }
+              title={
+                isCurrentFolderFavorited
+                  ? "현재 폴더 즐겨찾기에서 제거"
+                  : "현재 폴더를 즐겨찾기에 추가"
+              }
+            >
+              <Star size={11} fill={isCurrentFolderFavorited ? "currentColor" : "none"} />
+              <span>{isCurrentFolderFavorited ? "즐겨찾기됨" : "즐겨 찾기 추가"}</span>
+            </button>
+          )}
+        </div>
+
+        {isFavOpen && (
+          <div className="favorites-dropdown-menu">
+            {favoriteFolders.length === 0 ? (
+              <div className="favorites-empty">즐겨찾기한 폴더가 없습니다</div>
+            ) : (
+              <div className="favorites-list">
+                {favoriteFolders.map((fav) => {
+                  const isCurrent = folderTree?.root_path === fav.path;
+                  return (
+                    <div
+                      key={fav.path}
+                      className={`favorite-item ${isCurrent ? "active" : ""}`}
+                      onClick={() => {
+                        onOpenFolderByPath(fav.path);
+                        setIsFavOpen(false);
+                      }}
+                      title={fav.path}
+                    >
+                      <Folder size={13} className="fav-item-icon folder-icon" />
+                      <span className="fav-item-label">{fav.name}</span>
+                      <button
+                        type="button"
+                        className="fav-remove-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveFavoriteFolder(fav.path);
+                        }}
+                        title="즐겨찾기 삭제"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="column-body folder-tree-container">
@@ -164,7 +292,7 @@ export const FolderSidebar: React.FC<FolderSidebarProps> = ({
           </div>
         ) : folderTree.nodes.length === 0 ? (
           <div className="folder-empty-state">
-            <p className="empty-desc">표시할 폴더나 .md / .html 문서가 없습니다.</p>
+            <p className="empty-desc">표시할 폴더나 .md / .txt / .html 문서가 없습니다.</p>
           </div>
         ) : (
           <div className="folder-tree-root">

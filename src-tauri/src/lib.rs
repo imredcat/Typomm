@@ -68,7 +68,7 @@ fn scan_dir_filtered(dir: &Path, depth: usize) -> Vec<FolderNode> {
                 .map(|e| e.to_string_lossy().to_lowercase())
                 .unwrap_or_default();
 
-            if matches!(ext.as_str(), "md" | "markdown" | "html" | "htm") {
+            if matches!(ext.as_str(), "md" | "markdown" | "html" | "htm" | "txt") {
                 nodes.push(FolderNode {
                     name: file_name,
                     path: path_str,
@@ -177,10 +177,22 @@ fn save_file(path: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn save_file_as_dialog(default_name: Option<String>, content: String) -> Result<Option<FileInfo>, String> {
-    let mut dialog = rfd::FileDialog::new().add_filter("Markdown", &["md", "markdown"]);
+fn save_file_as_dialog(
+    default_name: Option<String>,
+    default_dir: Option<String>,
+    content: String,
+) -> Result<Option<FileInfo>, String> {
+    let mut dialog = rfd::FileDialog::new()
+        .add_filter("Markdown & Text", &["md", "markdown", "txt"])
+        .add_filter("HTML", &["html", "htm"]);
     if let Some(ref name) = default_name {
         dialog = dialog.set_file_name(name);
+    }
+    if let Some(ref dir) = default_dir {
+        let dir_path = Path::new(dir);
+        if dir_path.exists() && dir_path.is_dir() {
+            dialog = dialog.set_directory(dir_path);
+        }
     }
 
     let file = dialog.save_file();
@@ -205,10 +217,20 @@ fn save_file_as_dialog(default_name: Option<String>, content: String) -> Result<
 }
 
 #[tauri::command]
-fn export_html_dialog(default_name: Option<String>, content: String) -> Result<Option<String>, String> {
+fn export_html_dialog(
+    default_name: Option<String>,
+    default_dir: Option<String>,
+    content: String,
+) -> Result<Option<String>, String> {
     let mut dialog = rfd::FileDialog::new().add_filter("HTML Document", &["html", "htm"]);
     if let Some(ref name) = default_name {
         dialog = dialog.set_file_name(name);
+    }
+    if let Some(ref dir) = default_dir {
+        let dir_path = Path::new(dir);
+        if dir_path.exists() && dir_path.is_dir() {
+            dialog = dialog.set_directory(dir_path);
+        }
     }
 
     let file = dialog.save_file();

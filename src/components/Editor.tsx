@@ -12,6 +12,7 @@ import { TaskItem } from "@tiptap/extension-task-item";
 import { Placeholder } from "@tiptap/extension-placeholder";
 import { OutlineItem, TypewriterStyle, TypingSoundProfile } from "../types";
 import { playTypingSound, playCarriageReturnBell } from "../utils/soundEffects";
+import { applyFocusSpotlightMask } from "../utils/focusMask";
 
 export interface EditorHandle {
   getMarkdown: () => string;
@@ -330,6 +331,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
           targetTx = Math.round(Math.max(0, (viewportRect.width - paperRect.width) / 2));
           const targetLineY = viewportRect.height * 0.6;
           targetTy = Math.round(targetLineY - caretYInPaper);
+        } else if (style === "focus") {
+          // Mode 3 (집중 모드): Paper stays horizontally centered (줄고정),
+          // active line fixed at vertical 50% with 9-line flashlight spotlight gradient.
+          targetTx = Math.round(Math.max(0, (viewportRect.width - paperRect.width) / 2));
+          const targetLineY = viewportRect.height * 0.5;
+          targetTy = Math.round(targetLineY - caretYInPaper);
         } else {
           // Mode 1: Classic 2D Typewriter Mode (Caret locked at exact 50% X & 50% Y center)
           const targetCenterX = viewportRect.width / 2;
@@ -359,7 +366,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         const deltaY = Math.abs(targetTy - lastTy);
 
         const isLineWrapOrJump =
-          forceGlide || deltaX > 60 || deltaY > 40 || (style === "vertical" && deltaY > 10);
+          forceGlide ||
+          deltaX > 60 ||
+          deltaY > 40 ||
+          ((style === "vertical" || style === "focus") && deltaY > 10);
+
+        const container = currentEditor.view.dom.closest(".editor-container") as HTMLElement | null;
 
         if (isLineWrapOrJump) {
           // Smooth carriage return / vertical line advance glide animation
@@ -372,6 +384,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
             if (paper) {
               paper.style.transition = "none";
             }
+            if (container) {
+              container.style.transition = "none";
+            }
             isGlidingRef.current = false;
           }, 230);
         } else if (!isGlidingRef.current) {
@@ -380,6 +395,20 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
 
         lastTransformRef.current = { tx: targetTx, ty: targetTy };
         paper.style.transform = `translate3d(${targetTx}px, ${targetTy}px, 0)`;
+
+        if (container) {
+          const computedStyle = window.getComputedStyle(currentEditor.view.dom);
+          const fontSizePx = parseFloat(computedStyle.fontSize) || 16;
+          const lineHeightPx = parseFloat(computedStyle.lineHeight) || fontSizePx * 1.7;
+          applyFocusSpotlightMask(
+            container,
+            style === "focus",
+            viewportRect.height,
+            targetTy,
+            lineHeightPx,
+            isLineWrapOrJump || isGlidingRef.current
+          );
+        }
       } catch {
         // Coords might be temporarily unavailable during rapid DOM mutations
       }
@@ -524,7 +553,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
 
     useEffect(() => {
       typewriterRef.current = typewriterMode;
+      const container = editor?.view?.dom?.closest(".editor-container") as HTMLElement | null;
       if (typewriterMode && editor) {
+        if (typewriterStyle !== "focus") {
+          applyFocusSpotlightMask(container, false, 0, 0, 0, false);
+        }
         scheduleTypewriterScroll(editor, true);
       } else if (!typewriterMode && editor) {
         const paper = editor.view.dom.closest(".editor-wrapper") as HTMLElement | null;
@@ -532,6 +565,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
           paper.style.transform = "";
           paper.style.transition = "";
         }
+        applyFocusSpotlightMask(container, false, 0, 0, 0, false);
         lastTransformRef.current = { tx: 0, ty: 0 };
         lastCompletedPosRef.current = -1;
         lastCaretYRef.current = -1;
@@ -544,7 +578,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
       }
     }, [typewriterMode, typewriterStyle, editor, scheduleTypewriterScroll]);
 
-    // Enable smooth mouse wheel browsing while in typewriter mode
+    // Enable smooth mouse wheel browsing while in typewriter mode with bounded scroll range
     useEffect(() => {
       const viewport = document.querySelector<HTMLElement>(".editor-viewport");
       if (!viewport) return;
@@ -554,9 +588,34 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(
         const paper = document.querySelector<HTMLElement>(".editor-wrapper");
         if (!paper) return;
 
-        lastTransformRef.current.ty -= e.deltaY;
+        const viewportH = viewport.clientHeight;
+        const contentH = paper.offsetHeight;
+        // 작성된 문서 범위를 벗어나지 않도록 스크롤 상/하한선 제한 (글 없는 빈 공간 스크롤 방지)
+        const maxTy = viewportH * 0.5;
+        const minTy = Math.min(0, -(contentH - viewportH * 0.5));
+        const nextTy = lastTransformRef.current.ty - e.deltaY;
+        lastTransformRef.current.ty = Math.max(minTy, Math.min(maxTy, nextTy));
+
         paper.style.transition = "none";
         paper.style.transform = `translate3d(${lastTransformRef.current.tx}px, ${lastTransformRef.current.ty}px, 0)`;
+
+        if (typewriterStyleRef.current === "focus") {
+          const container = paper.querySelector<HTMLElement>(".editor-container");
+          const editorEl = paper.querySelector<HTMLElement>(".typora-editor-content");
+          if (container) {
+            const computedStyle = editorEl ? window.getComputedStyle(editorEl) : null;
+            const fontSizePx = computedStyle ? parseFloat(computedStyle.fontSize) || 16 : 16;
+            const lineHeightPx = computedStyle ? parseFloat(computedStyle.lineHeight) || fontSizePx * 1.7 : 27.2;
+            applyFocusSpotlightMask(
+              container,
+              true,
+              viewportH,
+              lastTransformRef.current.ty,
+              lineHeightPx,
+              false
+            );
+          }
+        }
       };
 
       viewport.addEventListener("wheel", handleWheel, { passive: true });

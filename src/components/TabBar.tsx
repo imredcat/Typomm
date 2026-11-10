@@ -1,24 +1,62 @@
-import React from "react";
-import { TabItem } from "../types";
-import { Plus, X, FileText, Layers } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { FavoriteItem, TabItem } from "../types";
+import { Plus, X, FileText, FileCode, Layers, Star, ChevronDown } from "lucide-react";
 
 interface TabBarProps {
   tabs: TabItem[];
   activeTabId: string;
+  favoriteFiles: FavoriteItem[];
+  currentFolderPath?: string | null;
   onSelectTab: (id: string) => void;
   onCloseTab: (id: string, e: React.MouseEvent) => void;
   onNewTab: () => void;
+  onOpenFavoriteFile: (path: string) => void;
+  onToggleFavoriteTab: (tab: TabItem) => void;
+  onRemoveFavoriteFile: (path: string) => void;
   onClosePanel: () => void;
+}
+
+function isFileInsideFolder(filePath: string, folderPath: string): boolean {
+  const normFile = filePath.replace(/\\/g, "/");
+  const normFolder = folderPath.replace(/\\/g, "/").replace(/\/+$/, "");
+  return normFile.startsWith(`${normFolder}/`);
 }
 
 export const TabBar: React.FC<TabBarProps> = ({
   tabs,
   activeTabId,
+  favoriteFiles,
+  currentFolderPath = null,
   onSelectTab,
   onCloseTab,
   onNewTab,
+  onOpenFavoriteFile,
+  onToggleFavoriteTab,
+  onRemoveFavoriteFile,
   onClosePanel,
 }) => {
+  const [isFavOpen, setIsFavOpen] = useState<boolean>(false);
+  const favDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isFavOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (favDropdownRef.current && !favDropdownRef.current.contains(e.target as Node)) {
+        setIsFavOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isFavOpen]);
+
+  const activeTab = tabs.find((t) => t.id === activeTabId) || null;
+  const isActiveTabFavorited = Boolean(
+    activeTab?.path && favoriteFiles.some((f) => f.path === activeTab.path)
+  );
+  const folderFavoriteFiles = currentFolderPath
+    ? favoriteFiles.filter((f) => isFileInsideFolder(f.path, currentFolderPath))
+    : [];
+
   return (
     <aside className="ulysses-column vertical-tabbar">
       <div className="column-header">
@@ -27,6 +65,23 @@ export const TabBar: React.FC<TabBarProps> = ({
           <span>문서 탭 ({tabs.length})</span>
         </div>
         <div className="column-actions">
+          {activeTab && (
+            <button
+              type="button"
+              className={`icon-btn fav-header-btn ${isActiveTabFavorited ? "is-fav" : ""}`}
+              onClick={() => onToggleFavoriteTab(activeTab)}
+              title={
+                isActiveTabFavorited
+                  ? "현재 문서 즐겨찾기 해제"
+                  : "현재 문서 즐겨찾기 추가"
+              }
+            >
+              <Star
+                size={13}
+                fill={isActiveTabFavorited ? "currentColor" : "none"}
+              />
+            </button>
+          )}
           <button
             type="button"
             className="icon-btn"
@@ -46,9 +101,94 @@ export const TabBar: React.FC<TabBarProps> = ({
         </div>
       </div>
 
+      {/* 상단 즐겨찾기 드롭다운 바 */}
+      <div className="favorites-section" ref={favDropdownRef}>
+        <div className="favorites-header">
+          <button
+            type="button"
+            className={`favorites-dropdown-trigger ${isFavOpen ? "open" : ""}`}
+            onClick={() => setIsFavOpen((prev) => !prev)}
+            title="즐겨찾기 목록 열기"
+          >
+            <Star size={12} className="fav-title-star" fill="currentColor" />
+            <span>즐겨찾기 ({folderFavoriteFiles.length})</span>
+            <ChevronDown
+              size={12}
+              className={`fav-chevron ${isFavOpen ? "rotated" : ""}`}
+            />
+          </button>
+
+          {activeTab && (
+            <button
+              type="button"
+              className={`fav-add-btn ${isActiveTabFavorited ? "added" : ""}`}
+              onClick={() => onToggleFavoriteTab(activeTab)}
+              title={
+                isActiveTabFavorited
+                  ? "현재 문서 즐겨찾기에서 제거"
+                  : "현재 문서를 즐겨찾기에 추가"
+              }
+            >
+              <Star size={11} fill={isActiveTabFavorited ? "currentColor" : "none"} />
+              <span>{isActiveTabFavorited ? "즐겨찾기됨" : "즐겨 찾기 추가"}</span>
+            </button>
+          )}
+        </div>
+
+        {isFavOpen && (
+          <div className="favorites-dropdown-menu">
+            {!currentFolderPath ? (
+              <div className="favorites-empty">선택한 폴더가 없습니다</div>
+            ) : folderFavoriteFiles.length === 0 ? (
+              <div className="favorites-empty">이 폴더에 즐겨찾기한 문서가 없습니다</div>
+            ) : (
+              <div className="favorites-list">
+                {folderFavoriteFiles.map((fav) => {
+                  const isCurrent = activeTab?.path === fav.path;
+                  const isHtml = /\.(html|htm)$/i.test(fav.name);
+                  return (
+                    <div
+                      key={fav.path}
+                      className={`favorite-item ${isCurrent ? "active" : ""}`}
+                      onClick={() => {
+                        onOpenFavoriteFile(fav.path);
+                        setIsFavOpen(false);
+                      }}
+                      title={fav.path}
+                    >
+                      {isHtml ? (
+                        <FileCode size={13} className="fav-item-icon html-icon" />
+                      ) : (
+                        <FileText size={13} className="fav-item-icon md-icon" />
+                      )}
+                      <span className="fav-item-label">{fav.name}</span>
+                      <button
+                        type="button"
+                        className="fav-remove-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveFavoriteFile(fav.path);
+                        }}
+                        title="즐겨찾기 삭제"
+                      >
+                        <X size={11} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="column-body vertical-tab-list">
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId;
+          const isHtml = tab.fileType === "html" || /\.(html|htm)$/i.test(tab.name);
+          const isFav = Boolean(
+            tab.path && favoriteFiles.some((f) => f.path === tab.path)
+          );
           return (
             <div
               key={tab.id}
@@ -62,7 +202,11 @@ export const TabBar: React.FC<TabBarProps> = ({
               }}
               title={tab.path ? tab.path : tab.name}
             >
-              <FileText size={14} className="tab-icon" />
+              {isHtml ? (
+                <FileCode size={14} className="tab-icon html-icon" />
+              ) : (
+                <FileText size={14} className="tab-icon" />
+              )}
               <div className="tab-info">
                 <span className="tab-title">{tab.name}</span>
                 {tab.path && (
@@ -71,6 +215,20 @@ export const TabBar: React.FC<TabBarProps> = ({
                   </span>
                 )}
               </div>
+
+              <button
+                type="button"
+                className={`tab-fav-btn ${isFav ? "is-fav" : ""}`}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onToggleFavoriteTab(tab);
+                }}
+                title={isFav ? "즐겨찾기 해제" : "즐겨 찾기 추가"}
+              >
+                <Star size={12} fill={isFav ? "currentColor" : "none"} />
+              </button>
 
               {tab.isDirty ? (
                 <button

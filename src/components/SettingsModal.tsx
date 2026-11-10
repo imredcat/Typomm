@@ -304,6 +304,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 >
                   2. 60% 줄 고정
                 </button>
+                <button
+                  className={`option-btn ${
+                    settings.typewriterMode && settings.typewriterStyle === "focus" ? "active" : ""
+                  }`}
+                  onClick={() =>
+                    onUpdateSettings({ typewriterMode: true, typewriterStyle: "focus" })
+                  }
+                  title="타자기 모드 3 (집중 모드: 세로 50% 위치 ±4줄 스포트라이트)"
+                >
+                  3. 집중 모드
+                </button>
               </div>
             </div>
 
@@ -419,6 +430,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             <div className="settings-row">
+              <span className="row-label">종이 영역</span>
+              <div className="btn-group">
+                <button
+                  className={`option-btn ${!settings.paperMode ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ paperMode: false })}
+                  title="종이 영역 느낌 끄기"
+                >
+                  기본
+                </button>
+                <button
+                  className={`option-btn ${settings.paperMode ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ paperMode: true })}
+                  title="어떤 테마에서든지 용지(종이 영역) 카드 느낌 적용"
+                >
+                  종이 영역
+                </button>
+              </div>
+            </div>
+
+            <div className="settings-row">
               <span className="row-label">문서 너비</span>
               <div className="btn-group">
                 {[
@@ -438,6 +469,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     {w.label}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="row-label">시작 화면</span>
+              <div className="btn-group">
+                <button
+                  className={`option-btn ${!settings.startInFullscreen ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ startInFullscreen: false })}
+                  title="앱 실행 시 일반 창 크기로 시작"
+                >
+                  일반 창
+                </button>
+                <button
+                  className={`option-btn ${settings.startInFullscreen ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ startInFullscreen: true })}
+                  title="앱 실행 시 전체 화면으로 자동 시작"
+                >
+                  전체 화면
+                </button>
+              </div>
+            </div>
+
+            <div className="settings-row">
+              <span className="row-label">환영 문서</span>
+              <div className="btn-group">
+                <button
+                  className={`option-btn ${settings.showWelcomeDoc ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ showWelcomeDoc: true })}
+                  title="이전 문서가 없을 때 환영 문서 열기"
+                >
+                  보이기
+                </button>
+                <button
+                  className={`option-btn ${!settings.showWelcomeDoc ? "active" : ""}`}
+                  onClick={() => onUpdateSettings({ showWelcomeDoc: false })}
+                  title="환영 문서 자동 열기 끄기"
+                >
+                  끄기
+                </button>
               </div>
             </div>
           </div>

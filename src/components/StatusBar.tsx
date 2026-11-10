@@ -6,6 +6,7 @@ interface StatusBarProps {
   chars: number;
   isDirty: boolean;
   isSourceMode: boolean;
+  isHtmlWebView?: boolean;
   typewriterMode: boolean;
   typewriterStyle?: TypewriterStyle;
   filePath: string | null;
@@ -17,6 +18,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   chars,
   isDirty,
   isSourceMode,
+  isHtmlWebView = false,
   typewriterMode,
   typewriterStyle = "horizontal",
   filePath,
@@ -28,7 +30,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     <footer className="typora-statusbar">
       <div className="status-left">
         <span className="status-tag">
-          {isSourceMode ? "소스 코드 모드" : "실시간 위지윅 모드"}
+          {isSourceMode
+            ? "소스 코드 모드"
+            : isHtmlWebView
+            ? "HTML 안전 웹뷰 (스크립트 차단됨)"
+            : "실시간 위지윅 모드"}
         </span>
         {typewriterMode && (
           <>
@@ -40,7 +46,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({
             >
               {typewriterStyle === "horizontal"
                 ? "타자기 1 (커서 정중앙)"
-                : "타자기 2 (60% 줄 고정)"}
+                : typewriterStyle === "vertical"
+                ? "타자기 2 (60% 줄 고정)"
+                : "타자기 3 (집중 모드)"}
             </button>
           </>
         )}

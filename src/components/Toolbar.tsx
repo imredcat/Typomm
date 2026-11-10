@@ -23,6 +23,7 @@ import {
   VolumeX,
   Crosshair,
   AlignCenterHorizontal,
+  ScrollText,
 } from "lucide-react";
 
 interface ToolbarProps {
@@ -33,6 +34,7 @@ interface ToolbarProps {
   isTabsOpen: boolean;
   isFolderOpen: boolean;
   isCheatsheetOpen: boolean;
+  paperMode: boolean;
   typewriterMode: boolean;
   typewriterStyle: TypewriterStyle;
   typingSound: TypingSoundProfile;
@@ -46,6 +48,7 @@ interface ToolbarProps {
   onToggleTabs: () => void;
   onToggleFolder: () => void;
   onToggleCheatsheet: () => void;
+  onTogglePaperMode: () => void;
   onCycleTypewriter: () => void;
   onSelectTypingSound: (sound: TypingSoundProfile) => void;
   onCenterWindow: () => void;
@@ -62,6 +65,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   isTabsOpen,
   isFolderOpen,
   isCheatsheetOpen,
+  paperMode,
   typewriterMode,
   typewriterStyle,
   typingSound,
@@ -75,6 +79,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onToggleTabs,
   onToggleFolder,
   onToggleCheatsheet,
+  onTogglePaperMode,
   onCycleTypewriter,
   onSelectTypingSound,
   onCenterWindow,
@@ -121,7 +126,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     ? "타자기 모드 (꺼짐)"
     : typewriterStyle === "horizontal"
     ? "타자기 모드 1 (중앙 고정)"
-    : "타자기 모드 2 (60% 줄 고정)";
+    : typewriterStyle === "vertical"
+    ? "타자기 모드 2 (60% 줄 고정)"
+    : "타자기 모드 3 (집중 모드: 세로 50% 스포트라이트)";
 
   return (
     <div className="top-header-container">
@@ -234,12 +241,18 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           >
             {typewriterMode && typewriterStyle === "vertical" ? (
               <AlignCenterHorizontal size={15} />
+            ) : typewriterMode && typewriterStyle === "focus" ? (
+              <Eye size={15} />
             ) : (
               <Crosshair size={15} />
             )}
             {typewriterMode && (
               <span className="mini-mode-badge">
-                {typewriterStyle === "horizontal" ? "1" : "2"}
+                {typewriterStyle === "horizontal"
+                  ? "1"
+                  : typewriterStyle === "vertical"
+                  ? "2"
+                  : "3"}
               </span>
             )}
           </button>
@@ -281,6 +294,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({
               </div>
             )}
           </div>
+
+          {/* 종이 영역 모드 (용지 카드 느낌 토글) */}
+          <button
+            type="button"
+            className={`toolbar-btn icon-only no-bg-toggle ${paperMode ? "mode-active" : "mode-off"}`}
+            onClick={onTogglePaperMode}
+            title={paperMode ? "종이 영역 느낌 (켜짐)" : "종이 영역 느낌 (꺼짐)"}
+          >
+            <ScrollText size={15} />
+          </button>
 
           {/* 창 가로 중앙 정렬 */}
           <button

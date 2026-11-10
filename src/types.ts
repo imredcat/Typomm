@@ -1,6 +1,6 @@
 export type TyporaTheme = "github" | "night" | "newsprint" | "gothic" | "custom";
 
-export type TypewriterStyle = "horizontal" | "vertical";
+export type TypewriterStyle = "horizontal" | "vertical" | "focus";
 
 export type TypingSoundProfile =
   | "off"
@@ -42,6 +42,26 @@ export interface TabItem {
   content: string;
   isDirty: boolean;
   isSourceMode: boolean;
+  fileType?: "markdown" | "html";
+}
+
+export interface FavoriteItem {
+  name: string;
+  path: string;
+}
+
+export interface FavoritesState {
+  folders: FavoriteItem[];
+  files: FavoriteItem[];
+}
+
+export interface SavedSession {
+  folderPath: string | null;
+  tabs: TabItem[];
+  activeTabId: string;
+  isFolderOpen: boolean;
+  isTabsOpen: boolean;
+  isOutlineOpen: boolean;
 }
 
 export interface OutlineItem {
@@ -58,6 +78,9 @@ export interface AppSettings {
   contentWidth: "narrow" | "default" | "wide" | "full"; // 720px, 860px, 1080px, 100%
   lineHeight: number; // 1.5, 1.7, 1.9
   showWordCount: boolean;
+  showWelcomeDoc: boolean; // 앱 첫 시작 시 환영 문서 보기
+  startInFullscreen: boolean; // 앱 실행 시 전체화면 자동 시작
+  paperMode: boolean; // 어떤 테마에서든지 용지(종이 영역) 카드 느낌 토글
   typewriterMode: boolean; // 타자기 모드 ON/OFF
   typewriterStyle: TypewriterStyle; // 1번("horizontal"): 커서 정중앙 & 문장 이동, 2번("vertical"): 상단 60% 줄 고정 & 커서만 이동
   typewriterBell: boolean; // 행의 마지막에서 '띵~' 차임벨 소리
@@ -106,6 +129,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   contentWidth: "default",
   lineHeight: 1.7,
   showWordCount: true,
+  showWelcomeDoc: true,
+  startInFullscreen: false,
+  paperMode: false,
   typewriterMode: false,
   typewriterStyle: "horizontal",
   typewriterBell: true,
