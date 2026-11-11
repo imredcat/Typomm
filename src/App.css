@@ -2662,6 +2662,14 @@ input:checked + .slider:before {
 }
 
 /* Empty Editor State (모든 문서 탭을 닫아 열린 문서가 없을 때) */
+.editor-viewport.is-empty-viewport {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  scrollbar-gutter: auto !important;
+  padding: 16px !important;
+}
+
 .empty-editor-state {
   margin: auto;
   display: flex;

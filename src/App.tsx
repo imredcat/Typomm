@@ -1777,9 +1777,11 @@ export default function App() {
         {/* 4. 편집영역 (메인 캔버스) */}
         <main
           className={`editor-viewport width-${settings.contentWidth} font-${settings.fontFamily} ${
+            !activeTab ? "is-empty-viewport" : ""
+          } ${
             settings.paperMode ? "paper-mode" : ""
           } ${
-            settings.typewriterMode && !isActiveHtmlWebView
+            activeTab && settings.typewriterMode && !isActiveHtmlWebView
               ? `typewriter-mode typewriter-${settings.typewriterStyle}`
               : ""
           } ${isDragOverEditor ? "drag-over-target" : ""}`}
