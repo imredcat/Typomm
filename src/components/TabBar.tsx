@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FavoriteItem, TabItem } from "../types";
-import { Plus, X, FileText, FileCode, Layers, Star, ChevronDown } from "lucide-react";
+import { Plus, X, FileText, FileCode, Image, Layers, Star, ChevronDown } from "lucide-react";
 
 interface TabBarProps {
   tabs: TabItem[];
@@ -192,7 +192,16 @@ export const TabBar: React.FC<TabBarProps> = ({
       <div className="column-body vertical-tab-list">
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId;
-          const isHtml = tab.fileType === "html" || /\.(html|htm)$/i.test(tab.name);
+          const isImageFile =
+            tab.fileType === "image" ||
+            /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(tab.name);
+          const isCodeOrWeb =
+            tab.fileType === "html" ||
+            tab.fileType === "mhtml" ||
+            tab.fileType === "css" ||
+            tab.fileType === "js" ||
+            tab.fileType === "php" ||
+            /\.(html|htm|mhtml|css|js|php)$/i.test(tab.name);
           const isFav = Boolean(
             tab.path && favoriteFiles.some((f) => f.path === tab.path)
           );
@@ -209,7 +218,9 @@ export const TabBar: React.FC<TabBarProps> = ({
               }}
               title={tab.path ? tab.path : tab.name}
             >
-              {isHtml ? (
+              {isImageFile ? (
+                <Image size={14} className="tab-icon html-icon" />
+              ) : isCodeOrWeb ? (
                 <FileCode size={14} className="tab-icon html-icon" />
               ) : (
                 <FileText size={14} className="tab-icon" />

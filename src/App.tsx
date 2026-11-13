@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ExternalLink } from "lucide-react";
 import { Editor, EditorHandle } from "./components/Editor";
+import { CodeEditor, CodeEditorHandle } from "./components/CodeEditor";
+import { PdfViewer } from "./components/PdfViewer";
 import { Toolbar } from "./components/Toolbar";
 import { TabBar } from "./components/TabBar";
 import { Outline } from "./components/Outline";
@@ -12,7 +15,15 @@ import { Cheatsheet } from "./components/Cheatsheet";
 import { generateStandaloneHtml } from "./utils/htmlExporter";
 import { playTypingSound, playCarriageReturnBell } from "./utils/soundEffects";
 import { applyFocusSpotlightMask } from "./utils/focusMask";
-import { isHtmlFilename, sanitizeHtmlForPreview } from "./utils/htmlSanitizer";
+import { sanitizeHtmlForPreview } from "./utils/htmlSanitizer";
+import {
+  getTabFileType,
+  isBinaryViewerFileType,
+  isCodeFileType,
+  isWebViewFileType,
+} from "./utils/fileTypes";
+import { loadBinaryObjectUrl } from "./utils/binaryCache";
+import { parseMhtmlToHtml } from "./utils/mhtmlParser";
 import menuAppIcon from "./assets/menu-app-icon.png";
 import {
   FileInfo,
@@ -147,7 +158,7 @@ export default function App() {
           );
       return restoredTabs.map((t) => ({
         ...t,
-        fileType: t.fileType || (isHtmlFilename(t.path || t.name) ? "html" : "markdown"),
+        fileType: t.fileType || getTabFileType(t.path || t.name),
       }));
     }
     if (bootSettings.showWelcomeDoc) {
@@ -210,6 +221,7 @@ export default function App() {
   const [stats, setStats] = useState<{ words: number; chars: number }>({ words: 0, chars: 0 });
 
   const editorRef = useRef<EditorHandle>(null);
+  const codeEditorRef = useRef<CodeEditorHandle>(null);
   const sourceTextareaRef = useRef<HTMLTextAreaElement>(null);
   const sourceTransformRef = useRef<{ tx: number; ty: number }>({ tx: 0, ty: 0 });
   const sourceGlidingRef = useRef<boolean>(false);
@@ -226,16 +238,41 @@ export default function App() {
 
   const isTabHtml = useCallback((tab: TabItem | null): boolean => {
     if (!tab) return false;
-    return tab.fileType === "html" || isHtmlFilename(tab.path || tab.name);
+    const ft = tab.fileType || getTabFileType(tab.path || tab.name);
+    return isWebViewFileType(ft) || isCodeFileType(ft) || isBinaryViewerFileType(ft);
   }, []);
 
+  const isTabWebView = useCallback((tab: TabItem | null): boolean => {
+    if (!tab) return false;
+    const ft = tab.fileType || getTabFileType(tab.path || tab.name);
+    return isWebViewFileType(ft);
+  }, []);
+
+  const activeTabFileType = activeTab
+    ? activeTab.fileType || getTabFileType(activeTab.path || activeTab.name)
+    : "markdown";
   const isActiveTabHtml = isTabHtml(activeTab);
-  const isActiveHtmlWebView = Boolean(activeTab && isActiveTabHtml && !activeTab.isSourceMode);
+  const isActiveHtmlWebView = Boolean(
+    activeTab && isTabWebView(activeTab) && !activeTab.isSourceMode
+  );
+  const isActivePdfViewer = Boolean(activeTab && activeTabFileType === "pdf");
+  const isActiveImageViewer = Boolean(activeTab && activeTabFileType === "image");
+  const [imageFitMode, setImageFitMode] = useState<"fit" | "actual">("fit");
+  const [pdfZoom, setPdfZoom] = useState<number>(1);
+  const [pdfNumPages, setPdfNumPages] = useState<number>(0);
+
+  useEffect(() => {
+    setPdfNumPages(0);
+  }, [activeTabId]);
 
   const sanitizedHtmlPreview = useMemo(() => {
     if (!isActiveHtmlWebView || !activeTab) return "";
-    return sanitizeHtmlForPreview(activeTab.content);
-  }, [isActiveHtmlWebView, activeTab]);
+    const rawHtml =
+      activeTabFileType === "mhtml"
+        ? parseMhtmlToHtml(activeTab.content)
+        : activeTab.content;
+    return sanitizeHtmlForPreview(rawHtml);
+  }, [isActiveHtmlWebView, activeTab, activeTabFileType]);
 
   const updateSettings = useCallback((newSettings: Partial<AppSettings>) => {
     setSettings((prev) => {
@@ -303,9 +340,17 @@ export default function App() {
         );
       }
 
+      const serializedTabs = syncedTabs.map((t) => {
+        const ft = t.fileType || getTabFileType(t.path || t.name);
+        if (isBinaryViewerFileType(ft) && t.path) {
+          return { ...t, content: "" };
+        }
+        return t;
+      });
+
       const payload: SavedSession = {
         folderPath: snap.folderPath,
-        tabs: syncedTabs,
+        tabs: serializedTabs,
         activeTabId: snap.activeTabId,
         isFolderOpen: snap.isFolderOpen,
         isTabsOpen: snap.isTabsOpen,
@@ -363,6 +408,11 @@ export default function App() {
       Promise.all(
         cleanSavedTabs.map(async (t) => {
           try {
+            const ft = t.fileType || getTabFileType(t.path);
+            if (isBinaryViewerFileType(ft)) {
+              const url = await loadBinaryObjectUrl(t.path!);
+              return { id: t.id, content: url, name: t.name };
+            }
             const info = await invoke<FileInfo>("read_file", { path: t.path! });
             return { id: t.id, content: info.content, name: info.name };
           } catch {
@@ -632,7 +682,12 @@ export default function App() {
           return;
         }
 
-        const openedIsHtml = isHtmlFilename(res.path || res.name);
+        const openedFileType = getTabFileType(res.path || res.name);
+        const openedIsNonWysiwyg =
+          isWebViewFileType(openedFileType) ||
+          isCodeFileType(openedFileType) ||
+          isBinaryViewerFileType(openedFileType);
+        const openedIsSourceMode = isCodeFileType(openedFileType);
 
         if (
           activeTab &&
@@ -649,16 +704,16 @@ export default function App() {
                     name: res.name,
                     content: res.content,
                     isDirty: false,
-                    isSourceMode: false,
-                    fileType: openedIsHtml ? "html" : "markdown",
+                    isSourceMode: openedIsSourceMode,
+                    fileType: openedFileType,
                   }
                 : t
             )
           );
-          if (!openedIsHtml) {
-            setTimeout(() => {
+          if (!openedIsNonWysiwyg) {
+            requestAnimationFrame(() => {
               editorRef.current?.setMarkdown(res.content);
-            }, 20);
+            });
           }
           return;
         }
@@ -676,8 +731,8 @@ export default function App() {
           name: res.name,
           content: res.content,
           isDirty: false,
-          isSourceMode: false,
-          fileType: openedIsHtml ? "html" : "markdown",
+          isSourceMode: openedIsSourceMode,
+          fileType: openedFileType,
         };
 
         setTabs((prev) => [
@@ -685,7 +740,7 @@ export default function App() {
           newTab,
         ]);
         setActiveTabId(newTabId);
-        if (!openedIsHtml) {
+        if (!openedIsNonWysiwyg) {
           setTimeout(() => {
             editorRef.current?.setMarkdown(res.content);
           }, 20);
@@ -729,7 +784,7 @@ export default function App() {
                     name: res.name,
                     content: currentContent,
                     isDirty: false,
-                    fileType: isHtmlFilename(res.path || res.name) ? "html" : "markdown",
+                    fileType: getTabFileType(res.path || res.name),
                   }
                 : t
             )
@@ -757,9 +812,7 @@ export default function App() {
     try {
       const res = await invoke<FileInfo | null>("save_file_as_dialog", {
         defaultName:
-          activeTab.name.endsWith(".md") || isHtmlFilename(activeTab.name)
-            ? activeTab.name
-            : `${activeTab.name}.md`,
+          activeTab.name.includes(".") ? activeTab.name : `${activeTab.name}.md`,
         defaultDir: folderTree?.root_path ?? null,
         content: currentContent,
       });
@@ -773,7 +826,7 @@ export default function App() {
                   name: res.name,
                   content: currentContent,
                   isDirty: false,
-                  fileType: isHtmlFilename(res.path || res.name) ? "html" : "markdown",
+                  fileType: getTabFileType(res.path || res.name),
                 }
               : t
           )
@@ -792,8 +845,10 @@ export default function App() {
 
   const handleToggleSourceMode = useCallback(() => {
     if (!activeTab) return;
-    const htmlTab = isTabHtml(activeTab);
-    const content = htmlTab
+    const ft = activeTab.fileType || getTabFileType(activeTab.path || activeTab.name);
+    if (isCodeFileType(ft) || isBinaryViewerFileType(ft)) return;
+    const webViewTab = isWebViewFileType(ft);
+    const content = webViewTab
       ? activeTab.content
       : activeTab.isSourceMode
       ? activeTab.content
@@ -806,12 +861,26 @@ export default function App() {
       )
     );
 
-    if (!newSourceMode && !htmlTab) {
+    if (!newSourceMode && !webViewTab) {
       setTimeout(() => {
         editorRef.current?.setMarkdown(content);
       }, 10);
     }
-  }, [activeTab, isTabHtml]);
+  }, [activeTab]);
+
+  const handleOpenInSystemBrowser = useCallback(async () => {
+    if (!activeTab) return;
+    try {
+      await invoke("open_in_system_browser", {
+        path: activeTab.isDirty ? null : activeTab.path,
+        content: activeTab.content,
+        fileName: activeTab.name,
+      });
+    } catch (err) {
+      console.error("시스템 브라우저 열기 실패:", err);
+      alert(`시스템 브라우저 열기 실패: ${err}`);
+    }
+  }, [activeTab]);
 
   const handleToggleOutline = () => {
     setIsOutlineOpen((prev) => !prev);
@@ -900,7 +969,7 @@ export default function App() {
                     name: res.name,
                     content: contentToSave,
                     isDirty: false,
-                    fileType: isHtmlFilename(res.path || res.name) ? "html" : "markdown",
+                    fileType: getTabFileType(res.path || res.name),
                   }
                 : t
             )
@@ -969,8 +1038,21 @@ export default function App() {
           return;
         }
 
-        const res = await invoke<FileInfo>("read_file", { path: filePath });
-        const openedIsHtml = isHtmlFilename(res.path || res.name);
+        const openedFileType = getTabFileType(filePath);
+        const fileName = filePath.split(/[/\\]/).pop() || filePath;
+        const res: FileInfo = isBinaryViewerFileType(openedFileType)
+          ? {
+              path: filePath,
+              name: fileName,
+              content: await loadBinaryObjectUrl(filePath),
+            }
+          : await invoke<FileInfo>("read_file", { path: filePath });
+
+        const openedIsNonWysiwyg =
+          isWebViewFileType(openedFileType) ||
+          isCodeFileType(openedFileType) ||
+          isBinaryViewerFileType(openedFileType);
+        const openedIsSourceMode = isCodeFileType(openedFileType);
 
         if (
           activeTab &&
@@ -987,16 +1069,16 @@ export default function App() {
                     name: res.name,
                     content: res.content,
                     isDirty: false,
-                    isSourceMode: false,
-                    fileType: openedIsHtml ? "html" : "markdown",
+                    isSourceMode: openedIsSourceMode,
+                    fileType: openedFileType,
                   }
                 : t
             )
           );
-          if (!openedIsHtml) {
-            setTimeout(() => {
+          if (!openedIsNonWysiwyg) {
+            requestAnimationFrame(() => {
               editorRef.current?.setMarkdown(res.content);
-            }, 20);
+            });
           }
           return;
         }
@@ -1014,8 +1096,8 @@ export default function App() {
           name: res.name,
           content: res.content,
           isDirty: false,
-          isSourceMode: false,
-          fileType: openedIsHtml ? "html" : "markdown",
+          isSourceMode: openedIsSourceMode,
+          fileType: openedFileType,
         };
 
         setTabs((prev) => [
@@ -1023,7 +1105,7 @@ export default function App() {
           newTab,
         ]);
         setActiveTabId(newTabId);
-        if (!openedIsHtml) {
+        if (!openedIsNonWysiwyg) {
           setTimeout(() => {
             editorRef.current?.setMarkdown(res.content);
           }, 20);
@@ -1634,9 +1716,8 @@ export default function App() {
     }
   }, [activeIsSourceMode, activeTabId, activeTabContent, adjustSourceTextareaHeight]);
 
-  const handleSourceChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleSourceValueChange = (newContent: string) => {
     if (!activeTab) return;
-    const newContent = e.target.value;
     setTabs((prev) =>
       prev.map((t) => (t.id === activeTab.id ? { ...t, content: newContent, isDirty: true } : t))
     );
@@ -1831,11 +1912,7 @@ export default function App() {
               onSelect={(pos) => {
                 if (!activeTab) return;
                 if (activeTab.isSourceMode) {
-                  const textarea = document.querySelector<HTMLTextAreaElement>(".source-textarea");
-                  if (textarea) {
-                    textarea.focus();
-                    textarea.setSelectionRange(pos, pos);
-                  }
+                  codeEditorRef.current?.scrollToPos(pos);
                 } else {
                   editorRef.current?.scrollToHeading(pos);
                 }
@@ -1887,15 +1964,28 @@ export default function App() {
                   <div className="html-webview-banner">
                     <span className="html-webview-badge">
                       <span className="html-webview-dot" />
-                      HTML 안전 웹뷰 — JavaScript·iframe 등 위험 요소 차단됨
+                      {activeTabFileType === "mhtml"
+                        ? "MHTML 안전 웹뷰 — JavaScript·iframe 등 위험 요소 차단됨"
+                        : "HTML 안전 웹뷰 — JavaScript·iframe 등 위험 요소 차단됨"}
                     </span>
-                    <button
-                      type="button"
-                      className="html-webview-source-btn"
-                      onClick={handleToggleSourceMode}
-                    >
-                      소스 코드 보기
-                    </button>
+                    <div className="html-webview-actions">
+                      <button
+                        type="button"
+                        className="html-webview-source-btn"
+                        onClick={handleOpenInSystemBrowser}
+                        title="시스템 기본 웹브라우저에서 열기"
+                      >
+                        <ExternalLink size={12} />
+                        <span>새창</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="html-webview-source-btn"
+                        onClick={handleToggleSourceMode}
+                      >
+                        소스 코드 보기
+                      </button>
+                    </div>
                   </div>
                   <iframe
                     key={activeTab.id}
@@ -1908,42 +1998,146 @@ export default function App() {
                 </div>
               )}
 
-              {activeTab.isSourceMode && (
+              {isActivePdfViewer && (
+                <div className="html-webview-container">
+                  <div className="html-webview-banner">
+                    <span className="html-webview-badge">
+                      <span className="html-webview-dot" />
+                      PDF 뷰어 (PDF.js) — {activeTab.name}
+                      {pdfNumPages > 0 ? ` (${pdfNumPages}페이지)` : ""}
+                    </span>
+                    <div className="html-webview-actions">
+                      <button
+                        type="button"
+                        className="html-webview-source-btn"
+                        onClick={() =>
+                          setPdfZoom((z) => Math.max(0.5, Math.round((z - 0.15) * 100) / 100))
+                        }
+                        title="축소"
+                      >
+                        -
+                      </button>
+                      <button
+                        type="button"
+                        className="html-webview-source-btn"
+                        onClick={() => setPdfZoom(1)}
+                        title="기본 크기 (100%)"
+                      >
+                        {Math.round(pdfZoom * 100)}%
+                      </button>
+                      <button
+                        type="button"
+                        className="html-webview-source-btn"
+                        onClick={() =>
+                          setPdfZoom((z) => Math.min(2.5, Math.round((z + 0.15) * 100) / 100))
+                        }
+                        title="확대"
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        className="html-webview-source-btn"
+                        onClick={handleOpenInSystemBrowser}
+                        title="Chrome / 시스템 기본 브라우저에서 열기"
+                      >
+                        <ExternalLink size={12} />
+                        <span>새창</span>
+                      </button>
+                    </div>
+                  </div>
+                  <PdfViewer
+                    dataUrl={activeTab.content}
+                    fileName={activeTab.name}
+                    zoom={pdfZoom}
+                    onNumPagesChange={setPdfNumPages}
+                  />
+                </div>
+              )}
+
+              {isActiveImageViewer && (
+                <div className="html-webview-container">
+                  <div className="html-webview-banner">
+                    <span className="html-webview-badge">
+                      <span className="html-webview-dot" />
+                      이미지 뷰어 — {activeTab.name}
+                    </span>
+                    <div className="html-webview-actions">
+                      <button
+                        type="button"
+                        className="html-webview-source-btn"
+                        onClick={() =>
+                          setImageFitMode((prev) => (prev === "fit" ? "actual" : "fit"))
+                        }
+                      >
+                        {imageFitMode === "fit" ? "원본 크기" : "화면에 맞춤"}
+                      </button>
+                      <button
+                        type="button"
+                        className="html-webview-source-btn"
+                        onClick={handleOpenInSystemBrowser}
+                        title="시스템 기본 앱에서 열기"
+                      >
+                        <ExternalLink size={12} />
+                        <span>새창</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className={`image-viewer-stage mode-${imageFitMode}`}>
+                    {activeTab.content ? (
+                      <img
+                        src={activeTab.content}
+                        alt={activeTab.name}
+                        className="image-viewer-img"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="image-viewer-empty">이미지를 불러오는 중입니다...</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab.isSourceMode && !isActivePdfViewer && !isActiveImageViewer && (
                 <div className="source-mode-container">
-                  <textarea
-                    ref={sourceTextareaRef}
-                    className="source-textarea"
-                    style={{ fontSize: `${settings.fontSize}px`, lineHeight: settings.lineHeight }}
+                  {isTabWebView(activeTab) && (
+                    <div className="html-webview-banner code-mode-banner">
+                      <span className="html-webview-badge">
+                        {activeTabFileType.toUpperCase()} 소스 편집 (구문 강조 · 제안하기)
+                      </span>
+                      <div className="html-webview-actions">
+                        <button
+                          type="button"
+                          className="html-webview-source-btn"
+                          onClick={handleOpenInSystemBrowser}
+                          title="시스템 기본 웹브라우저에서 열기"
+                        >
+                          <ExternalLink size={12} />
+                          <span>새창</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="html-webview-source-btn"
+                          onClick={handleToggleSourceMode}
+                        >
+                          웹뷰 보기
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <CodeEditor
+                    ref={codeEditorRef}
                     value={activeTab.content}
-                    onChange={(e) => {
-                      handleSourceChange(e);
-                      scheduleSourceTypewriterScroll();
-                      adjustSourceTextareaHeight();
-                    }}
-                    onKeyDown={(e) => {
-                      if (!e.metaKey && !e.ctrlKey && !e.altKey && settings.typingSound !== "off") {
-                        playTypingSound(settings.typingSound, e.key);
+                    fileType={activeTabFileType}
+                    theme={settings.theme}
+                    fontSize={settings.fontSize}
+                    lineHeight={settings.lineHeight}
+                    onChange={handleSourceValueChange}
+                    onTypingSound={(key) => {
+                      if (settings.typingSound !== "off") {
+                        playTypingSound(settings.typingSound, key);
                       }
                     }}
-                    onSelect={() => scheduleSourceTypewriterScroll()}
-                    onKeyUp={() => scheduleSourceTypewriterScroll()}
-                    onClick={() => scheduleSourceTypewriterScroll()}
-                    onCompositionStart={() => {
-                      sourceComposingRef.current = true;
-                    }}
-                    onCompositionUpdate={() => {
-                      sourceComposingRef.current = true;
-                    }}
-                    onCompositionEnd={() => {
-                      sourceComposingRef.current = false;
-                      scheduleSourceTypewriterScroll();
-                    }}
-                    placeholder={
-                      isActiveTabHtml
-                        ? "HTML 원본 소스 코드를 입력하세요..."
-                        : "마크다운 원본 내용을 입력하세요..."
-                    }
-                    autoFocus
                   />
                 </div>
               )}
@@ -1952,7 +2146,13 @@ export default function App() {
                 style={{
                   fontSize: `${settings.fontSize}px`,
                   lineHeight: settings.lineHeight,
-                  display: activeTab.isSourceMode || isActiveHtmlWebView ? "none" : "block",
+                  display:
+                    activeTab.isSourceMode ||
+                    isActiveHtmlWebView ||
+                    isActivePdfViewer ||
+                    isActiveImageViewer
+                      ? "none"
+                      : "block",
                 }}
               >
                 <Editor

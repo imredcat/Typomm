@@ -1,8 +1,8 @@
 /**
  * 집중 모드(타자기 모드 3번) 전용 스포트라이트 그라데이션 마스크 적용 유틸리티.
  * - 가운데(뷰포트 세로 50%, 커서 줄): 100% 선명 (opacity 1)
- * - 위 4줄 / 아래 4줄 (총 약 9줄): 멀어질수록 점진적 투명화
- * - 4줄을 벗어나는 영역: 완전히 투명(보이지 않음)
+ * - 위 6줄 / 아래 6줄 (총 약 13줄): 멀어질수록 점진적 투명화
+ * - 6줄을 벗어나는 영역: 완전히 투명(보이지 않음)
  */
 export function applyFocusSpotlightMask(
   targetEl: HTMLElement | null,
@@ -28,21 +28,23 @@ export function applyFocusSpotlightMask(
   }
 
   const safeLineHeight = Math.max(18, lineHeightPx || 27.2);
-  // 가운데 커서 줄(1줄) + 위 4줄 + 아래 4줄 = 총 9줄 영역
-  const maskHeight = Math.round(safeLineHeight * 9);
+  // 가운데 커서 줄(1줄) + 위 6줄 + 아래 6줄 = 총 13줄 영역
+  const maskHeight = Math.round(safeLineHeight * 13);
 
   const gradient = `linear-gradient(to bottom,
     rgba(0, 0, 0, 0) 0%,
-    rgba(0, 0, 0, 0.10) 4%,
-    rgba(0, 0, 0, 0.28) 12%,
-    rgba(0, 0, 0, 0.52) 24%,
-    rgba(0, 0, 0, 0.78) 36%,
-    rgba(0, 0, 0, 1) 44%,
-    rgba(0, 0, 0, 1) 56%,
-    rgba(0, 0, 0, 0.78) 64%,
-    rgba(0, 0, 0, 0.52) 76%,
-    rgba(0, 0, 0, 0.28) 88%,
-    rgba(0, 0, 0, 0.10) 96%,
+    rgba(0, 0, 0, 0.12) 3%,
+    rgba(0, 0, 0, 0.26) 10%,
+    rgba(0, 0, 0, 0.45) 20%,
+    rgba(0, 0, 0, 0.66) 30%,
+    rgba(0, 0, 0, 0.85) 40%,
+    rgba(0, 0, 0, 1) 46%,
+    rgba(0, 0, 0, 1) 54%,
+    rgba(0, 0, 0, 0.85) 60%,
+    rgba(0, 0, 0, 0.66) 70%,
+    rgba(0, 0, 0, 0.45) 80%,
+    rgba(0, 0, 0, 0.26) 90%,
+    rgba(0, 0, 0, 0.12) 97%,
     rgba(0, 0, 0, 0) 100%
   )`;
 

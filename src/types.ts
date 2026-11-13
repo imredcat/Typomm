@@ -35,6 +35,17 @@ export interface FolderTree {
   nodes: FolderNode[];
 }
 
+export type TabFileType =
+  | "markdown"
+  | "html"
+  | "mhtml"
+  | "css"
+  | "js"
+  | "php"
+  | "pdf"
+  | "image"
+  | "text";
+
 export interface TabItem {
   id: string;
   path: string | null;
@@ -42,7 +53,7 @@ export interface TabItem {
   content: string;
   isDirty: boolean;
   isSourceMode: boolean;
-  fileType?: "markdown" | "html";
+  fileType?: TabFileType;
 }
 
 export interface FavoriteItem {

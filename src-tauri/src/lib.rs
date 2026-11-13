@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
+use tauri_plugin_opener::OpenerExt;
 
 #[derive(Serialize, Deserialize)]
 pub struct FileInfo {
@@ -43,11 +44,11 @@ fn scan_dir_filtered(dir: &Path, depth: usize) -> Vec<FolderNode> {
             None => continue,
         };
 
-        // 숨김 파일/폴더 및 빌드/패키지 폴더 제외
-        if file_name.starts_with('.')
+        // .git, .DS_Store 및 대용량 빌드/패키지 캐시 폴더만 제외하고 모든 파일 표시
+        if file_name == ".git"
+            || file_name == ".DS_Store"
             || file_name == "node_modules"
             || file_name == "target"
-            || file_name == "dist"
         {
             continue;
         }
@@ -63,19 +64,12 @@ fn scan_dir_filtered(dir: &Path, depth: usize) -> Vec<FolderNode> {
                 children: Some(children),
             });
         } else if path_buf.is_file() {
-            let ext = path_buf
-                .extension()
-                .map(|e| e.to_string_lossy().to_lowercase())
-                .unwrap_or_default();
-
-            if matches!(ext.as_str(), "md" | "markdown" | "html" | "htm" | "txt") {
-                nodes.push(FolderNode {
-                    name: file_name,
-                    path: path_str,
-                    is_dir: false,
-                    children: None,
-                });
-            }
+            nodes.push(FolderNode {
+                name: file_name,
+                path: path_str,
+                is_dir: false,
+                children: None,
+            });
         }
     }
 
@@ -129,10 +123,44 @@ fn read_folder_tree(path: String) -> Result<FolderTree, String> {
     })
 }
 
+fn read_path_content(path: &Path) -> Result<String, String> {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+
+    let binary_mime = match ext.as_str() {
+        "pdf" => Some("application/pdf"),
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        "svg" => Some("image/svg+xml"),
+        "bmp" => Some("image/bmp"),
+        "ico" => Some("image/x-icon"),
+        _ => None,
+    };
+
+    if let Some(mime) = binary_mime {
+        let bytes = fs::read(path).map_err(|e| e.to_string())?;
+        let b64 = encode_base64(&bytes);
+        Ok(format!("data:{};base64,{}", mime, b64))
+    } else {
+        fs::read_to_string(path).map_err(|e| e.to_string())
+    }
+}
+
 #[tauri::command]
 fn open_file_dialog() -> Result<Option<FileInfo>, String> {
     let file = rfd::FileDialog::new()
-        .add_filter("Markdown & HTML", &["md", "markdown", "html", "htm", "txt"])
+        .add_filter(
+            "Supported Files",
+            &[
+                "md", "markdown", "txt", "html", "htm", "mhtml", "css", "js", "php", "pdf",
+                "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico",
+            ],
+        )
         .pick_file();
 
     if let Some(path_buf) = file {
@@ -142,7 +170,7 @@ fn open_file_dialog() -> Result<Option<FileInfo>, String> {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "Untitled.md".to_string());
 
-        let content = fs::read_to_string(&path_buf).map_err(|e| e.to_string())?;
+        let content = read_path_content(&path_buf)?;
 
         Ok(Some(FileInfo {
             path: path_str,
@@ -162,13 +190,19 @@ fn read_file(path: String) -> Result<FileInfo, String> {
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "Untitled.md".to_string());
 
-    let content = fs::read_to_string(path_buf).map_err(|e| e.to_string())?;
+    let content = read_path_content(path_buf)?;
 
     Ok(FileInfo {
         path,
         name,
         content,
     })
+}
+
+#[tauri::command]
+fn read_binary_file(path: String) -> Result<tauri::ipc::Response, String> {
+    let bytes = fs::read(&path).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(bytes))
 }
 
 #[tauri::command]
@@ -330,6 +364,92 @@ fn center_window_horizontally(window: tauri::Window) -> Result<(), String> {
     window.center().map_err(|e| e.to_string())
 }
 
+fn open_path_preferring_chromium(app: &tauri::AppHandle, target_path: &str) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let chromium_apps = [
+            ("/Applications/Google Chrome.app", "Google Chrome"),
+            ("/Applications/Chromium.app", "Chromium"),
+            ("/Applications/Microsoft Edge.app", "Microsoft Edge"),
+            ("/Applications/Brave Browser.app", "Brave Browser"),
+            ("/Applications/Arc.app", "Arc"),
+        ];
+        for (app_path, app_name) in chromium_apps {
+            if Path::new(app_path).exists() {
+                if std::process::Command::new("open")
+                    .args(["-a", app_name, target_path])
+                    .spawn()
+                    .is_ok()
+                {
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let mut candidates: Vec<std::path::PathBuf> = Vec::new();
+        for env_key in ["PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"] {
+            if let Ok(base) = std::env::var(env_key) {
+                let base_path = Path::new(&base);
+                candidates.push(base_path.join("Google\\Chrome\\Application\\chrome.exe"));
+                candidates.push(base_path.join("Chromium\\Application\\chrome.exe"));
+                candidates.push(base_path.join("Microsoft\\Edge\\Application\\msedge.exe"));
+                candidates.push(base_path.join("BraveSoftware\\Brave-Browser\\Application\\brave.exe"));
+            }
+        }
+        for exe in candidates {
+            if exe.exists() {
+                if std::process::Command::new(&exe).arg(target_path).spawn().is_ok() {
+                    return Ok(());
+                }
+            }
+        }
+    }
+
+    app.opener()
+        .open_path(target_path, None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn open_in_system_browser(
+    app: tauri::AppHandle,
+    path: Option<String>,
+    content: String,
+    file_name: String,
+) -> Result<(), String> {
+    if let Some(ref p) = path {
+        let p_buf = Path::new(p);
+        if p_buf.exists() && p_buf.is_file() {
+            return open_path_preferring_chromium(&app, p);
+        }
+    }
+
+    let safe_name: String = file_name
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == '.' || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let lower = safe_name.to_lowercase();
+    let final_name = if lower.ends_with(".html") || lower.ends_with(".htm") || lower.ends_with(".mhtml") {
+        safe_name
+    } else {
+        format!("{}.html", safe_name)
+    };
+
+    let temp_path = std::env::temp_dir().join(format!("typomm_preview_{}", final_name));
+    fs::write(&temp_path, content).map_err(|e| e.to_string())?;
+    let temp_str = temp_path.to_string_lossy().to_string();
+    open_path_preferring_chromium(&app, &temp_str)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -339,12 +459,14 @@ pub fn run() {
             open_folder_dialog,
             read_folder_tree,
             read_file,
+            read_binary_file,
             save_file,
             save_file_as_dialog,
             export_html_dialog,
             pick_background_image,
             start_window_drag,
-            center_window_horizontally
+            center_window_horizontally,
+            open_in_system_browser
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

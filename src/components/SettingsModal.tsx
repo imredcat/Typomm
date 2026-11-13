@@ -311,7 +311,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   onClick={() =>
                     onUpdateSettings({ typewriterMode: true, typewriterStyle: "focus" })
                   }
-                  title="타자기 모드 3 (집중 모드: 세로 50% 위치 ±4줄 스포트라이트)"
+                  title="타자기 모드 3 (집중 모드: 세로 50% 위치 ±6줄 스포트라이트)"
                 >
                   3. 집중 모드
                 </button>
