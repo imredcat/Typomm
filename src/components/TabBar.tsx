@@ -14,6 +14,8 @@ interface TabBarProps {
   onToggleFavoriteTab: (tab: TabItem) => void;
   onRemoveFavoriteFile: (path: string) => void;
   onClosePanel: () => void;
+  width?: number;
+  onResizeStart?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 function isFileInsideFolder(filePath: string, folderPath: string): boolean {
@@ -34,6 +36,8 @@ export const TabBar: React.FC<TabBarProps> = ({
   onToggleFavoriteTab,
   onRemoveFavoriteFile,
   onClosePanel,
+  width,
+  onResizeStart,
 }) => {
   const [isFavOpen, setIsFavOpen] = useState<boolean>(false);
   const favDropdownRef = useRef<HTMLDivElement>(null);
@@ -58,7 +62,10 @@ export const TabBar: React.FC<TabBarProps> = ({
     : [];
 
   return (
-    <aside className="ulysses-column vertical-tabbar">
+    <aside
+      className="ulysses-column vertical-tabbar"
+      style={width ? { width: `${width}px` } : undefined}
+    >
       <div className="column-header">
         <div className="column-title">
           <Layers size={15} />
@@ -264,6 +271,15 @@ export const TabBar: React.FC<TabBarProps> = ({
           );
         })}
       </div>
+      {onResizeStart && (
+        <div
+          className="column-resizer"
+          onMouseDown={onResizeStart}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="문서 탭 영역 너비 조절"
+        />
+      )}
     </aside>
   );
 };

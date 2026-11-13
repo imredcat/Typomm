@@ -24,6 +24,8 @@ interface FolderSidebarProps {
   onToggleFavoriteFolder: (item: FavoriteItem) => void;
   onRemoveFavoriteFolder: (path: string) => void;
   onClose: () => void;
+  width?: number;
+  onResizeStart?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
 interface TreeNodeItemProps {
@@ -124,6 +126,8 @@ export const FolderSidebar: React.FC<FolderSidebarProps> = ({
   onToggleFavoriteFolder,
   onRemoveFavoriteFolder,
   onClose,
+  width,
+  onResizeStart,
 }) => {
   const [isFavOpen, setIsFavOpen] = useState<boolean>(false);
   const favDropdownRef = useRef<HTMLDivElement>(null);
@@ -144,7 +148,10 @@ export const FolderSidebar: React.FC<FolderSidebarProps> = ({
   );
 
   return (
-    <aside className="ulysses-column folder-sidebar">
+    <aside
+      className="ulysses-column folder-sidebar"
+      style={width ? { width: `${width}px` } : undefined}
+    >
       <div className="column-header">
         <div className="column-title" title={folderTree?.root_path || "폴더"}>
           <Folder size={15} />
@@ -308,6 +315,15 @@ export const FolderSidebar: React.FC<FolderSidebarProps> = ({
           </div>
         )}
       </div>
+      {onResizeStart && (
+        <div
+          className="column-resizer"
+          onMouseDown={onResizeStart}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="폴더 영역 너비 조절"
+        />
+      )}
     </aside>
   );
 };

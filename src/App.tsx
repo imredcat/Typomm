@@ -24,12 +24,21 @@ import {
   FavoriteItem,
   FavoritesState,
   SavedSession,
+  PanelWidths,
 } from "./types";
 import "./App.css";
 
 const SETTINGS_STORAGE_KEY = "typomm_settings";
 const FAVORITES_STORAGE_KEY = "typomm_favorites";
 const SESSION_STORAGE_KEY = "typomm_session";
+
+type ResizablePanelKey = keyof PanelWidths;
+
+const PANEL_MIN_WIDTHS: PanelWidths = {
+  folder: 240,
+  tabs: 230,
+  outline: 220,
+};
 
 function loadInitialSettings(): AppSettings {
   try {
@@ -172,6 +181,20 @@ export default function App() {
   const [isFolderOpen, setIsFolderOpen] = useState<boolean>(
     bootSession ? Boolean(bootSession.isFolderOpen) : false
   );
+  const [panelWidths, setPanelWidths] = useState<PanelWidths>(() => ({
+    folder: Math.max(
+      PANEL_MIN_WIDTHS.folder,
+      bootSession?.panelWidths?.folder ?? PANEL_MIN_WIDTHS.folder
+    ),
+    tabs: Math.max(
+      PANEL_MIN_WIDTHS.tabs,
+      bootSession?.panelWidths?.tabs ?? PANEL_MIN_WIDTHS.tabs
+    ),
+    outline: Math.max(
+      PANEL_MIN_WIDTHS.outline,
+      bootSession?.panelWidths?.outline ?? PANEL_MIN_WIDTHS.outline
+    ),
+  }));
   const [folderTree, setFolderTree] = useState<FolderTree | null>(null);
   const [favorites, setFavorites] = useState<FavoritesState>(loadSavedFavorites);
   const [isDragOverEditor, setIsDragOverEditor] = useState<boolean>(false);
@@ -246,6 +269,7 @@ export default function App() {
     isFolderOpen: boolean;
     isTabsOpen: boolean;
     isOutlineOpen: boolean;
+    panelWidths: PanelWidths;
   }>({
     tabs,
     activeTabId,
@@ -253,6 +277,7 @@ export default function App() {
     isFolderOpen,
     isTabsOpen,
     isOutlineOpen,
+    panelWidths,
   });
 
   latestSessionRef.current = {
@@ -262,6 +287,7 @@ export default function App() {
     isFolderOpen,
     isTabsOpen,
     isOutlineOpen,
+    panelWidths,
   };
 
   const persistSessionNow = useCallback(() => {
@@ -284,6 +310,7 @@ export default function App() {
         isFolderOpen: snap.isFolderOpen,
         isTabsOpen: snap.isTabsOpen,
         isOutlineOpen: snap.isOutlineOpen,
+        panelWidths: snap.panelWidths,
       };
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
@@ -296,7 +323,7 @@ export default function App() {
       persistSessionNow();
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [tabs, activeTabId, folderTree, isFolderOpen, isTabsOpen, isOutlineOpen, persistSessionNow]);
+  }, [tabs, activeTabId, folderTree, isFolderOpen, isTabsOpen, isOutlineOpen, panelWidths, persistSessionNow]);
 
   useEffect(() => {
     const onBeforeUnload = () => {
@@ -1481,7 +1508,7 @@ export default function App() {
           setFsHoverLeftOverlay(true);
         } else if (fsHoverLeftOverlay) {
           const inSidebar = Boolean(target?.closest(".sidebar-panels-dock"));
-          if (inSidebar) {
+          if (inSidebar || isResizingPanelRef.current) {
             fsSidebarGraceUntilRef.current = Date.now() + 300;
           } else if (Date.now() > fsSidebarGraceUntilRef.current) {
             setFsHoverLeftOverlay(false);
@@ -1636,6 +1663,44 @@ export default function App() {
     setOutline(items);
   };
 
+  const isResizingPanelRef = useRef<boolean>(false);
+
+  const handlePanelResizeStart = useCallback(
+    (panel: ResizablePanelKey, e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const startX = e.clientX;
+      const startWidth = panelWidths[panel];
+      const minWidth = PANEL_MIN_WIDTHS[panel];
+      isResizingPanelRef.current = true;
+      document.body.classList.add("is-resizing-panel");
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const deltaX = moveEvent.clientX - startX;
+        const maxWidth = Math.max(minWidth, window.innerWidth - 260);
+        const nextWidth = Math.round(
+          Math.min(maxWidth, Math.max(minWidth, startWidth + deltaX))
+        );
+        setPanelWidths((prev) =>
+          prev[panel] === nextWidth ? prev : { ...prev, [panel]: nextWidth }
+        );
+      };
+
+      const handleMouseUp = () => {
+        isResizingPanelRef.current = false;
+        document.body.classList.remove("is-resizing-panel");
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    },
+    [panelWidths]
+  );
+
   const customEditorRgba = hexToRgba(settings.customEditorBgColor, settings.customEditorBgOpacity);
   const pendingCloseTab = pendingCloseTabId ? tabs.find((t) => t.id === pendingCloseTabId) : null;
 
@@ -1726,6 +1791,8 @@ export default function App() {
               folderTree={folderTree}
               activeFilePath={activeTab?.path ?? null}
               favoriteFolders={favorites.folders}
+              width={panelWidths.folder}
+              onResizeStart={(e) => handlePanelResizeStart("folder", e)}
               onPickFolder={handlePickFolder}
               onRefreshFolder={handleRefreshFolder}
               onOpenFile={handleOpenFileByPath}
@@ -1743,6 +1810,8 @@ export default function App() {
               activeTabId={activeTabId}
               favoriteFiles={favorites.files}
               currentFolderPath={folderTree?.root_path ?? null}
+              width={panelWidths.tabs}
+              onResizeStart={(e) => handlePanelResizeStart("tabs", e)}
               onSelectTab={handleSelectTab}
               onCloseTab={handleCloseTab}
               onNewTab={handleNewTab}
@@ -1757,6 +1826,8 @@ export default function App() {
           {isOutlineOpen && (
             <Outline
               outline={outline}
+              width={panelWidths.outline}
+              onResizeStart={(e) => handlePanelResizeStart("outline", e)}
               onSelect={(pos) => {
                 if (!activeTab) return;
                 if (activeTab.isSourceMode) {

@@ -302,8 +302,8 @@ body, html {
 }
 
 @keyframes slideIn {
-  from { width: 0; opacity: 0; }
-  to { width: 240px; opacity: 1; }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .outline-header {
@@ -1138,6 +1138,7 @@ input:checked + .slider:before {
 
 /* Ulysses Style Left Multi-Columns: [Folder] | [Vertical Tabs] | [Outline] | [Editor] */
 .ulysses-column {
+  position: relative;
   height: 100%;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
@@ -1151,14 +1152,49 @@ input:checked + .slider:before {
 
 .outline-sidebar.ulysses-column {
   width: 220px;
+  min-width: 220px;
 }
 
 .vertical-tabbar.ulysses-column {
   width: 230px;
+  min-width: 230px;
 }
 
 .folder-sidebar.ulysses-column {
   width: 240px;
+  min-width: 240px;
+}
+
+.column-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 20;
+}
+
+.column-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2px;
+  height: 100%;
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.column-resizer:hover::after,
+body.is-resizing-panel .column-resizer:active::after {
+  background-color: var(--accent-color);
+}
+
+body.is-resizing-panel,
+body.is-resizing-panel * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 .column-header {
@@ -2583,7 +2619,7 @@ input:checked + .slider:before {
   bottom: 0;
   left: 0;
   z-index: 190;
-  max-width: min(85vw, 720px);
+  max-width: 85vw;
   box-shadow: 10px 0 32px rgba(0, 0, 0, 0.24);
   background-color: var(--bg-secondary);
 }

@@ -6,11 +6,22 @@ interface OutlineProps {
   outline: OutlineItem[];
   onSelect: (pos: number) => void;
   onClose: () => void;
+  width?: number;
+  onResizeStart?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-export const Outline: React.FC<OutlineProps> = ({ outline, onSelect, onClose }) => {
+export const Outline: React.FC<OutlineProps> = ({
+  outline,
+  onSelect,
+  onClose,
+  width,
+  onResizeStart,
+}) => {
   return (
-    <aside className="ulysses-column outline-sidebar">
+    <aside
+      className="ulysses-column outline-sidebar"
+      style={width ? { width: `${width}px` } : undefined}
+    >
       <div className="column-header">
         <div className="column-title">
           <ListTree size={15} />
@@ -45,6 +56,15 @@ export const Outline: React.FC<OutlineProps> = ({ outline, onSelect, onClose }) 
           ))
         )}
       </div>
+      {onResizeStart && (
+        <div
+          className="column-resizer"
+          onMouseDown={onResizeStart}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="목차 영역 너비 조절"
+        />
+      )}
     </aside>
   );
 };

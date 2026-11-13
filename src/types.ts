@@ -55,6 +55,12 @@ export interface FavoritesState {
   files: FavoriteItem[];
 }
 
+export interface PanelWidths {
+  folder: number;
+  tabs: number;
+  outline: number;
+}
+
 export interface SavedSession {
   folderPath: string | null;
   tabs: TabItem[];
@@ -62,6 +68,7 @@ export interface SavedSession {
   isFolderOpen: boolean;
   isTabsOpen: boolean;
   isOutlineOpen: boolean;
+  panelWidths?: Partial<PanelWidths>;
 }
 
 export interface OutlineItem {
